@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  neuropi:
+    build: .
+    container_name: neuropi_app
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - TZ=Asia/Kolkata
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - ./instance:/app/instance
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    devices:
+      - /dev/video0:/dev/video0 # Camera
+      # Uncomment for Hardware Acceleration on Linux/Pi
+      # - /dev/dri:/dev/dri
+      # - /dev/vchiq:/dev/vchiq

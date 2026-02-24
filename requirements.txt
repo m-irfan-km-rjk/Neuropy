@@ -1,0 +1,7 @@
+sqlalchemy
+kivy[base]
+opencv-python
+mediapipe
+tensorflow
+numpy
+pyttsx3

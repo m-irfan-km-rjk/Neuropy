@@ -1,0 +1,635 @@
+#:kivy 2.0.0
+#:import get_color_from_hex kivy.utils.get_color_from_hex
+
+<MenuButton@Button>:
+    btn_color: [0.5, 0.5, 0.5, 1]
+    background_color: 0, 0, 0, 0
+    background_normal: ''
+    font_size: '24sp'
+    bold: True
+    color: 1, 1, 1, 1
+    canvas.before:
+        Color:
+            rgba: self.btn_color if self.state == 'normal' else [x*0.8 for x in self.btn_color]
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [20,]
+
+<DashboardCard@ButtonBehavior+BoxLayout>:
+    title: ""
+    icon: ""
+    bg_color: [1,1,1,1]
+    title_color: [0.2,0.2,0.2,1]
+    orientation: 'vertical'
+    padding: 20
+    spacing: 10
+    canvas.before:
+        Color:
+            rgba: self.bg_color
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [30,]
+    Label:
+        text: root.icon
+        font_size: '60sp'
+        size_hint_y: 0.6
+    Label:
+        text: root.title
+        font_size: '30sp'
+        bold: True
+        color: root.title_color
+        size_hint_y: 0.4
+
+<DashboardScreen>:
+    name: 'dashboard'
+    canvas.before:
+        Color:
+            rgba: get_color_from_hex("#FDFCF0")
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+    BoxLayout:
+        orientation: 'vertical'
+        padding: 30
+        spacing: 20
+
+        # Header: Time and Admin
+        BoxLayout:
+            size_hint_y: 0.2
+            spacing: 20
+            canvas.before:
+                Color:
+                    rgba: 1, 1, 1, 1
+                RoundedRectangle:
+                    pos: self.pos
+                    size: self.size
+                    radius: [30,]
+            
+            BoxLayout:
+                orientation: 'vertical'
+                padding: [30, 0]
+                Label:
+                    id: clock_label
+                    text: "00:00"
+                    font_size: '64sp'
+                    bold: True
+                    color: get_color_from_hex("#333333")
+                    halign: 'left'
+                    text_size: self.size
+                Label:
+                    id: date_label
+                    text: "Monday, January 1"
+                    font_size: '24sp'
+                    color: get_color_from_hex("#888888")
+                    halign: 'left'
+                    text_size: self.size
+            
+            Button:
+                text: "⚙️"
+                size_hint_x: None
+                width: 100
+                background_normal: ''
+                background_color: 0, 0, 0, 0
+                font_size: '40sp'
+                on_release: app.root.current = 'admin'
+
+        # Main: Now & Next
+        BoxLayout:
+            size_hint_y: 0.5
+            spacing: 30
+            
+            # NOW Card
+            BoxLayout:
+                orientation: 'vertical'
+                padding: 20
+                canvas.before:
+                    Color:
+                        rgba: get_color_from_hex("#E8F5E9")
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [30,]
+                    Color:
+                        rgba: get_color_from_hex("#81C784")
+                    Line:
+                        rounded_rectangle: (self.x, self.y, self.width, self.height, 30)
+                        width: 2
+                
+                Label:
+                    text: "NOW"
+                    color: get_color_from_hex("#2E7D32")
+                    font_size: '32sp'
+                    bold: True
+                    size_hint_y: 0.2
+                
+                BoxLayout:
+                    id: now_icon
+                    size_hint_y: 0.4
+                    Label:
+                        text: "📍"
+                        font_size: '80sp'
+                
+                Label:
+                    id: now_title
+                    text: "Free Time"
+                    font_size: '40sp'
+                    bold: True
+                    color: get_color_from_hex("#333333")
+                    size_hint_y: 0.4
+
+            # NEXT Card
+            BoxLayout:
+                orientation: 'vertical'
+                padding: 20
+                canvas.before:
+                    Color:
+                        rgba: get_color_from_hex("#E3F2FD")
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [30,]
+                    Color:
+                        rgba: get_color_from_hex("#64B5F6")
+                    Line:
+                        rounded_rectangle: (self.x, self.y, self.width, self.height, 30)
+                        width: 2
+                
+                Label:
+                    text: "NEXT"
+                    color: get_color_from_hex("#1565C0")
+                    font_size: '32sp'
+                    bold: True
+                    size_hint_y: 0.2
+                
+                BoxLayout:
+                    id: next_icon
+                    size_hint_y: 0.4
+                    Label:
+                        text: "➡️"
+                        font_size: '80sp'
+                
+                Label:
+                    id: next_title
+                    text: "All Done!"
+                    font_size: '40sp'
+                    bold: True
+                    color: get_color_from_hex("#333333")
+                    size_hint_y: 0.4
+
+        # Navigation Bar
+        BoxLayout:
+            size_hint_y: 0.3
+            spacing: 20
+            
+            DashboardCard:
+                title: "Talk"
+                icon: "🗣️"
+                bg_color: get_color_from_hex("#FFF9C4")
+                title_color: get_color_from_hex("#F57F17")
+                on_release: app.root.current = 'aac'
+            
+            DashboardCard:
+                title: "Schedule"
+                icon: "📅"
+                bg_color: get_color_from_hex("#F3E5F5")
+                title_color: get_color_from_hex("#7B1FA2")
+                on_release: app.root.current = 'scheduler'
+            
+            DashboardCard:
+                title: "Games"
+                icon: "😊"
+                bg_color: get_color_from_hex("#FCE4EC")
+                title_color: get_color_from_hex("#C2185B")
+                on_release: app.root.current = 'emotion_selection'
+
+<AACScreen>:
+    name: 'aac'
+    canvas.before:
+        Color:
+            rgba: get_color_from_hex("#FFFDE7")
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+    BoxLayout:
+        orientation: 'vertical'
+        
+        # Top Bar: Sentence Builder
+        BoxLayout:
+            size_hint_y: 0.15
+            padding: 15
+            spacing: 15
+            canvas.before:
+                Color:
+                    rgba: 1, 1, 1, 1
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+            
+            Button:
+                text: "🏠 Home"
+                size_hint_x: None
+                width: 140
+                background_normal: ''
+                background_color: get_color_from_hex("#FFF9C4")
+                color: get_color_from_hex("#F57F17")
+                bold: True
+                border_radius: [15,]
+                on_release: app.root.current = 'dashboard'
+
+            # Sentence Builder Display
+            BoxLayout:
+                id: sentence_display
+                padding: 10
+                spacing: 10
+                canvas.before:
+                    Color:
+                        rgba: get_color_from_hex("#F5F5F5")
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [15,]
+            
+            Button:
+                text: "🔊 Speak"
+                size_hint_x: None
+                width: 140
+                background_normal: ''
+                background_color: get_color_from_hex("#66BB6A")
+                color: 1, 1, 1, 1
+                bold: True
+                on_release: root.speak_sentence()
+            
+            Button:
+                text: "❌ Clear"
+                size_hint_x: None
+                width: 140
+                background_normal: ''
+                background_color: get_color_from_hex("#EF9A9A")
+                color: get_color_from_hex("#C62828")
+                bold: True
+                on_release: root.clear_sentence()
+
+        BoxLayout:
+            orientation: 'horizontal'
+            
+            # Sidebar: Categories
+            ScrollView:
+                size_hint_x: 0.25
+                canvas.before:
+                    Color:
+                        rgba: 1, 1, 1, 0.8
+                    Rectangle:
+                        pos: self.pos
+                        size: self.size
+                
+                BoxLayout:
+                    id: category_list
+                    orientation: 'vertical'
+                    size_hint_y: None
+                    height: self.minimum_height
+                    padding: 15
+                    spacing: 10
+
+            # Grid: Buttons
+            ScrollView:
+                size_hint_x: 0.75
+                GridLayout:
+                    id: aac_grid
+                    cols: 3
+                    padding: 20
+                    spacing: 20
+                    size_hint_y: None
+                    height: self.minimum_height
+
+<AdminScreen>:
+    name: 'admin'
+    canvas.before:
+        Color:
+            rgba: get_color_from_hex("#F5F5F5")
+        Rectangle:
+            pos: self.pos
+            size: self.size
+    
+    BoxLayout:
+        orientation: 'vertical'
+        padding: 30
+        spacing: 20
+
+        BoxLayout:
+            size_hint_y: None
+            height: 60
+            spacing: 10
+            Label:
+                text: "Parent Admin: Schedule"
+                font_size: '32sp'
+                bold: True
+                color: get_color_from_hex("#333333")
+                halign: 'left'
+                text_size: self.size
+            Button:
+                text: "Back"
+                size_hint_x: None
+                width: 100
+                on_release: app.root.current = 'dashboard'
+        
+        BoxLayout:
+            orientation: 'horizontal'
+            spacing: 20
+            
+            # Add Task Form
+            BoxLayout:
+                orientation: 'vertical'
+                size_hint_x: 0.4
+                padding: 20
+                spacing: 15
+                canvas.before:
+                    Color:
+                        rgba: 1, 1, 1, 1
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [20,]
+                
+                Label:
+                    text: "Add New Task"
+                    font_size: '24sp'
+                    bold: True
+                    color: get_color_from_hex("#7B1FA2")
+                    size_hint_y: None
+                    height: 40
+                
+                TextInput:
+                    id: task_title
+                    hint_text: "Task Title (e.g., Breakfast)"
+                    multiline: False
+                    size_hint_y: None
+                    height: 50
+                
+                BoxLayout:
+                    spacing: 10
+                    size_hint_y: None
+                    height: 80
+                    BoxLayout:
+                        orientation: 'vertical'
+                        Label:
+                            text: "Start (HH:MM)"
+                            font_size: '14sp'
+                            color: [0.3,0.3,0.3,1]
+                        TextInput:
+                            id: start_hour
+                            hint_text: "08:00"
+                            multiline: False
+                    BoxLayout:
+                        orientation: 'vertical'
+                        Label:
+                            text: "End (HH:MM)"
+                            font_size: '14sp'
+                            color: [0.3,0.3,0.3,1]
+                        TextInput:
+                            id: end_hour
+                            hint_text: "08:30"
+                            multiline: False
+                
+                TextInput:
+                    id: task_icon
+                    hint_text: "Icon Emoji (e.g., 🥣)"
+                    multiline: False
+                    size_hint_y: None
+                    height: 50
+                
+                Button:
+                    text: "Add Task"
+                    background_normal: ''
+                    background_color: get_color_from_hex("#7B1FA2")
+                    size_hint_y: None
+                    height: 60
+                    bold: True
+                    on_release: root.add_task()
+
+            # Current Schedule List
+            BoxLayout:
+                orientation: 'vertical'
+                size_hint_x: 0.6
+                padding: 20
+                canvas.before:
+                    Color:
+                        rgba: 1, 1, 1, 1
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [20,]
+                
+                Label:
+                    text: "Current Schedule"
+                    font_size: '24sp'
+                    bold: True
+                    color: get_color_from_hex("#333333")
+                    size_hint_y: None
+                    height: 40
+                
+                ScrollView:
+                    BoxLayout:
+                        id: admin_event_list
+                        orientation: 'vertical'
+                        size_hint_y: None
+                        height: self.minimum_height
+                        spacing: 10
+                        padding: 10
+
+<SchedulerScreen>:
+    name: 'scheduler'
+    canvas.before:
+        Color:
+            rgba: get_color_from_hex("#FFF5E6")
+        Rectangle:
+            pos: self.pos
+            size: self.size
+    
+    BoxLayout:
+        orientation: 'vertical'
+        
+        # Header
+        BoxLayout:
+            size_hint_y: 0.1
+            padding: 10
+            spacing: 10
+            canvas.before:
+                Color:
+                    rgba: get_color_from_hex("#FFDAB9")
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+
+            Button:
+                text: "🏠 Home"
+                size_hint_x: None
+                width: 120
+                background_normal: ''
+                background_color: 1, 1, 1, 0.5
+                color: 0, 0, 0, 1
+                on_release: app.root.current = 'dashboard'
+            
+            Label:
+                text: "My Daily Schedule"
+                font_size: '32sp'
+                bold: True
+                color: get_color_from_hex("#555555")
+
+        # Timeline
+        ScrollView:
+            BoxLayout:
+                id: timeline_list
+                orientation: 'vertical'
+                size_hint_y: None
+                height: self.minimum_height
+                padding: [50, 20]
+                spacing: 30
+
+<EmotionSelectionScreen>:
+    name: 'emotion_selection'
+    canvas.before:
+        Color:
+            rgba: get_color_from_hex("#E6F2FF")
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+    BoxLayout:
+        orientation: 'vertical'
+        padding: 20
+        spacing: 20
+        
+        # Header
+        BoxLayout:
+            size_hint_y: None
+            height: 80
+            spacing: 10
+            
+            Button:
+                text: "🏠 Home"
+                size_hint_x: None
+                width: 120
+                background_normal: ''
+                background_color: get_color_from_hex("#AEC6CF")
+                color: 1, 1, 1, 1
+                bold: True
+                on_release: app.root.current = 'dashboard'
+            
+            Label:
+                text: "Emotion Exercise"
+                font_size: '32sp'
+                bold: True
+                color: get_color_from_hex("#333333")
+        
+        # Instructions
+        Label:
+            text: "Click an emotion card to practice!"
+            font_size: '24sp'
+            color: get_color_from_hex("#666666")
+            size_hint_y: None
+            height: 40
+        
+        # Emotion Cards Grid
+        ScrollView:
+            GridLayout:
+                id: emotion_cards_container
+                cols: 3
+                spacing: 30
+                padding: 20
+                size_hint_y: None
+                height: self.minimum_height
+
+<EmotionPracticeScreen>:
+    name: 'emotion_practice'
+    canvas.before:
+        Color:
+            rgba: get_color_from_hex("#E6F2FF")
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+    BoxLayout:
+        orientation: 'vertical'
+        padding: 20
+        spacing: 20
+        
+        # Header
+        BoxLayout:
+            size_hint_y: None
+            height: 80
+            spacing: 10
+            
+            Button:
+                text: "< Back"
+                size_hint_x: None
+                width: 100
+                background_normal: ''
+                background_color: get_color_from_hex("#AEC6CF")
+                color: 1, 1, 1, 1
+                bold: True
+                on_release: root.go_back()
+            
+            Label:
+                id: target_emotion_label
+                text: "Show me: Happy"
+                font_size: '32sp'
+                bold: True
+                color: get_color_from_hex("#333333")
+        
+        # Feedback Label
+        Label:
+            id: feedback_label
+            text: "Position your face in the camera"
+            font_size: '24sp'
+            bold: True
+            color: get_color_from_hex("#666666")
+            size_hint_y: None
+            height: 50
+        
+        # Camera Feed with Border
+        BoxLayout:
+            id: camera_container
+            canvas.before:
+                Color:
+                    rgba: 0.2, 0.2, 0.2, 1
+                RoundedRectangle:
+                    pos: self.pos
+                    size: self.size
+                    radius: [15,]
+        
+        # Instructions
+        BoxLayout:
+            orientation: 'vertical'
+            size_hint_y: None
+            height: 80
+            padding: 10
+            canvas.before:
+                Color:
+                    rgba: get_color_from_hex("#FFF9E6")
+                RoundedRectangle:
+                    pos: self.pos
+                    size: self.size
+                    radius: [15,]
+            
+            Label:
+                text: "Red = Try again | Green = Correct!"
+                font_size: '18sp'
+                color: get_color_from_hex("#666666")
+        
+        Button:
+            id: next_button
+            text: "Next Emotion"
+            size_hint_y: None
+            height: 60
+            background_normal: ''
+            background_color: get_color_from_hex("#77DD77")
+            color: 1, 1, 1, 1
+            bold: True
+            opacity: 0
+            disabled: True
+            on_release: root.return_to_selection()
+
