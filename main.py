@@ -15,9 +15,10 @@ from kivy.uix.behaviors import ButtonBehavior
 from kivy.properties import StringProperty, ObjectProperty, BooleanProperty
 from kivy.animation import Animation
 from kivy.clock import Clock
-from kivy.graphics import Color, Rectangle, Line
+from kivy.graphics import Color, Rectangle, Line, RoundedRectangle
 from kivy.uix.image import Image as KivyImage
 import random
+import threading
 from datetime import datetime, timedelta
 import os
 import pyttsx3
@@ -115,11 +116,23 @@ class AACScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.sentence = []
+        self._tts_lock = threading.Lock()
+        self._init_engine()
+
+    def _init_engine(self):
+        """Initialise or re-initialise the pyttsx3 TTS engine."""
         self.engine = pyttsx3.init()
         self.engine.setProperty('rate', 150)
 
     def on_enter(self):
         self.load_aac_data()
+
+    def on_leave(self):
+        """Stop the TTS engine when leaving this screen to free resources."""
+        try:
+            self.engine.stop()
+        except Exception:
+            pass
 
     def load_aac_data(self):
         app = App.get_running_app()
@@ -134,7 +147,7 @@ class AACScreen(Screen):
         self.ids.category_list.add_widget(all_btn)
 
         for cat in categories:
-            btn = Button(text=cat.name, size_hint_y=None, height=60, 
+            btn = Button(text=cat.name, size_hint_y=None, height=60,
                         background_normal='', background_color=get_color_from_hex(cat.color or "#E0F7FA"),
                         color=[0,0,0,1], bold=True)
             btn.bind(on_release=lambda x, c=cat: self.filter_buttons(c.id))
@@ -152,32 +165,55 @@ class AACScreen(Screen):
         
         buttons = query.all()
         for btn_data in buttons:
-            btn = Button(size_hint_y=None, height=180)
-            btn.background_normal = ''
-            btn.background_color = [1, 1, 1, 1]
+            card = BoxLayout(orientation='vertical', padding=10, spacing=5,
+                             size_hint_y=None, height=180)
             
-            layout = BoxLayout(orientation='vertical', padding=10)
-            
+            # Draw rounded white card background + subtle border, bound to pos/size
+            with card.canvas.before:
+                Color(1, 1, 1, 1)
+                bg_rect = RoundedRectangle(pos=card.pos, size=card.size, radius=[15,])
+                Color(0.85, 0.85, 0.85, 1)
+                border_line = Line(rounded_rectangle=(card.x, card.y, card.width, card.height, 15), width=1.2)
+
+            def _update_card_canvas(widget, *args,
+                                     r=bg_rect, ln=border_line):
+                r.pos = widget.pos
+                r.size = widget.size
+                ln.rounded_rectangle = (widget.x, widget.y, widget.width, widget.height, 15)
+
+            card.bind(pos=_update_card_canvas, size=_update_card_canvas)
+
             # Icon handling
             if btn_data.image_path and (btn_data.image_path.endswith('.png') or btn_data.image_path.endswith('.jpg')):
-                icon_widget = KivyImage(source=btn_data.image_path, size_hint_y=0.7)
+                icon_widget = KivyImage(source=btn_data.image_path, size_hint_y=0.65)
             else:
-                icon_widget = Label(text=btn_data.image_path or '🗣️', font_size='50sp', color=[0,0,0,1], size_hint_y=0.7)
+                icon_widget = Label(text=btn_data.image_path or '🗣️',
+                                    font_size='48sp', color=[0,0,0,1], size_hint_y=0.65)
             
-            layout.add_widget(icon_widget)
-            layout.add_widget(Label(text=btn_data.label, font_size='20sp', bold=True, color=[0,0,0,1], size_hint_y=0.3))
-            
-            btn.add_widget(layout)
-            btn.bind(on_release=lambda x, b=btn_data: self.add_to_sentence(b))
-            self.ids.aac_grid.add_widget(btn)
+            card.add_widget(icon_widget)
+            card.add_widget(Label(text=btn_data.label, font_size='18sp',
+                                  bold=True, color=[0.2,0.2,0.2,1], size_hint_y=0.35))
+
+            # Bind tap via on_touch_down on the card
+            card.bind(on_touch_down=lambda w, t, b=btn_data:
+                      self.add_to_sentence(b) if w.collide_point(*t.pos) else None)
+            self.ids.aac_grid.add_widget(card)
 
     def add_to_sentence(self, btn_data):
         self.sentence.append(btn_data)
-        label = Label(text=btn_data.label, size_hint_x=None, width=100, color=[0,0,0,1], 
-                     bold=True, outline_width=1)
+        label = Label(text=btn_data.label, size_hint_x=None, width=110,
+                      color=[0.2,0.2,0.2,1], bold=True)
+
+        # Draw chip background, bound to label pos/size so it moves correctly
         with label.canvas.before:
-            Color(1,1,1,1)
-            Rectangle(pos=label.pos, size=label.size)
+            chip_color = Color(1, 0.95, 0.8, 1)
+            chip_rect = RoundedRectangle(pos=label.pos, size=label.size, radius=[10,])
+
+        def _update_chip(widget, *args, r=chip_rect):
+            r.pos = widget.pos
+            r.size = widget.size
+
+        label.bind(pos=_update_chip, size=_update_chip)
         self.ids.sentence_display.add_widget(label)
         self.speak(btn_data.speech_text)
 
@@ -191,8 +227,15 @@ class AACScreen(Screen):
         self.ids.sentence_display.clear_widgets()
 
     def speak(self, text):
-        self.engine.say(text)
-        self.engine.runAndWait()
+        """Speak text in a background thread so the UI never freezes."""
+        def _run():
+            with self._tts_lock:
+                try:
+                    self.engine.say(text)
+                    self.engine.runAndWait()
+                except Exception as e:
+                    print(f"TTS error: {e}")
+        threading.Thread(target=_run, daemon=True).start()
 
 class AdminScreen(Screen):
     def on_enter(self):
@@ -234,24 +277,48 @@ class AdminScreen(Screen):
         end = self.ids.end_hour.text.strip()
         icon = self.ids.task_icon.text.strip()
 
-        if title and start and end:
-            try:
-                today = datetime.now().date()
-                s_time = datetime.combine(today, datetime.strptime(start, '%H:%M').time())
-                e_time = datetime.combine(today, datetime.strptime(end, '%H:%M').time())
-                
-                app = App.get_running_app()
-                new_ev = Event(title=title, start_time=s_time, end_time=e_time, icon_path=icon)
-                app.db.add(new_ev)
-                app.db.commit()
-                
-                self.ids.task_title.text = ""
-                self.ids.start_hour.text = ""
-                self.ids.end_hour.text = ""
-                self.ids.task_icon.text = ""
-                self.load_admin_events()
-            except Exception as e:
-                print(f"Error adding task: {e}")
+        if not title or not start or not end:
+            self._show_error("Please fill in title, start time, and end time.")
+            return
+
+        try:
+            today = datetime.now().date()
+            s_time = datetime.combine(today, datetime.strptime(start, '%H:%M').time())
+            e_time = datetime.combine(today, datetime.strptime(end, '%H:%M').time())
+            if e_time <= s_time:
+                self._show_error("End time must be after start time.")
+                return
+            
+            app = App.get_running_app()
+            new_ev = Event(title=title, start_time=s_time, end_time=e_time,
+                           icon_path=icon or '📅')
+            app.db.add(new_ev)
+            app.db.commit()
+            
+            self.ids.task_title.text = ""
+            self.ids.start_hour.text = ""
+            self.ids.end_hour.text = ""
+            self.ids.task_icon.text = ""
+            self.load_admin_events()
+        except ValueError:
+            self._show_error("Invalid time format. Use HH:MM (e.g. 08:30)")
+        except Exception as e:
+            self._show_error(f"Unexpected error: {e}")
+
+    def _show_error(self, message):
+        """Show a simple error popup to the user."""
+        content = BoxLayout(orientation='vertical', padding=20, spacing=15)
+        content.add_widget(Label(text=message, font_size='18sp', color=[0.2,0.2,0.2,1],
+                                 halign='center', text_size=(350, None)))
+        close_btn = Button(text="OK", size_hint_y=None, height=50,
+                           background_normal='', background_color=get_color_from_hex("#7B1FA2"),
+                           color=[1,1,1,1], bold=True)
+        content.add_widget(close_btn)
+        popup = Popup(title='⚠️ Oops!', content=content,
+                      size_hint=(None, None), size=(400, 230),
+                      title_color=[0.2,0.2,0.2,1])
+        close_btn.bind(on_release=popup.dismiss)
+        popup.open()
 
     def delete_event(self, event):
         app = App.get_running_app()
@@ -280,14 +347,26 @@ class SchedulerScreen(Screen):
             is_past = ev.end_time < now
             is_current = ev.start_time <= now <= ev.end_time
             
+            bg_hex = "#E8F5E9" if is_current else "#FFFFFF"
             card = BoxLayout(size_hint_y=None, height=120, padding=15, spacing=20)
+
             with card.canvas.before:
-                Color(*get_color_from_hex("#E8F5E9" if is_current else "#FFFFFF"))
-                Rectangle(pos=card.pos, size=card.size)
+                bg_c = Color(*get_color_from_hex(bg_hex))
+                bg_r = Rectangle(pos=card.pos, size=card.size)
                 if is_current:
-                    Color(*get_color_from_hex("#4CAF50"))
-                    Line(rectangle=(card.x, card.y, card.width, card.height), width=2)
-            
+                    bdr_c = Color(*get_color_from_hex("#4CAF50"))
+                    bdr_l = Line(rectangle=(card.x, card.y, card.width, card.height), width=2)
+
+            # Bind canvas instructions to card position/size so they update on scroll
+            if is_current:
+                def _upd(w, *a, r=bg_r, l=bdr_l):
+                    r.pos = w.pos; r.size = w.size
+                    l.rectangle = (w.x, w.y, w.width, w.height)
+            else:
+                def _upd(w, *a, r=bg_r):
+                    r.pos = w.pos; r.size = w.size
+            card.bind(pos=_upd, size=_upd)
+
             card.opacity = 0.6 if is_past else 1.0
             
             time_box = BoxLayout(orientation='vertical', size_hint_x=0.2)
