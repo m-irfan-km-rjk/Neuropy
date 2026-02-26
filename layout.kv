@@ -200,16 +200,16 @@
             
             DashboardCard:
                 title: "Games"
-                icon: "😊"
-                bg_color: get_color_from_hex("#FCE4EC")
-                title_color: get_color_from_hex("#C2185B")
-                on_release: app.root.current = 'emotion_selection'
+                icon: "🎮"
+                bg_color: get_color_from_hex("#DCEDC8")
+                title_color: get_color_from_hex("#558B2F")
+                on_release: app.root.current = 'games'
 
 <AACScreen>:
     name: 'aac'
     canvas.before:
         Color:
-            rgba: get_color_from_hex("#FFFDE7")
+            rgba: get_color_from_hex("#F0F4F8")  # Modern light grey-blue background
         Rectangle:
             pos: self.pos
             size: self.size
@@ -219,86 +219,135 @@
         
         # Top Bar: Sentence Builder
         BoxLayout:
-            size_hint_y: 0.15
-            padding: 15
-            spacing: 15
+            size_hint_y: 0.20  # Taller for better touch target
+            padding: 20
+            spacing: 20
             canvas.before:
                 Color:
                     rgba: 1, 1, 1, 1
-                Rectangle:
+                RoundedRectangle:
                     pos: self.pos
                     size: self.size
+                    radius: [0, 0, 30, 30]  # Rounded bottom corners
             
             Button:
                 text: "🏠 Home"
                 size_hint_x: None
-                width: 140
+                width: 150
                 background_normal: ''
-                background_color: get_color_from_hex("#FFF9C4")
-                color: get_color_from_hex("#F57F17")
+                background_color: get_color_from_hex("#FFE082")
+                color: get_color_from_hex("#E65100")
+                font_size: '22sp'
                 bold: True
-                on_release: app.root.current = 'dashboard'
-
-            # Sentence Builder Display
-            BoxLayout:
-                id: sentence_display
-                padding: 10
-                spacing: 10
                 canvas.before:
                     Color:
-                        rgba: get_color_from_hex("#F5F5F5")
+                        rgba: self.background_color if self.state == 'normal' else [x*0.8 for x in self.background_color]
                     RoundedRectangle:
                         pos: self.pos
                         size: self.size
-                        radius: [15,]
+                        radius: [20,]
+                on_release: app.root.current = 'dashboard'
+
+            # Sentence Builder Display
+            ScrollView:
+                do_scroll_y: False
+                canvas.before:
+                    Color:
+                        rgba: get_color_from_hex("#E3F2FD")
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [20,]
+                    Color:
+                        rgba: get_color_from_hex("#90CAF9")
+                    Line:
+                        rounded_rectangle: (self.x, self.y, self.width, self.height, 20)
+                        width: 1.5
+                BoxLayout:
+                    id: sentence_display
+                    padding: 15
+                    spacing: 15
+                    size_hint_x: None
+                    width: self.minimum_width
             
             Button:
                 text: "🔊 Speak"
                 size_hint_x: None
-                width: 140
+                width: 150
                 background_normal: ''
-                background_color: get_color_from_hex("#66BB6A")
+                background_color: get_color_from_hex("#81C784")
                 color: 1, 1, 1, 1
+                font_size: '22sp'
                 bold: True
+                canvas.before:
+                    Color:
+                        rgba: self.background_color if self.state == 'normal' else [x*0.8 for x in self.background_color]
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [20,]
                 on_release: root.speak_sentence()
             
             Button:
                 text: "❌ Clear"
                 size_hint_x: None
-                width: 140
+                width: 150
                 background_normal: ''
-                background_color: get_color_from_hex("#EF9A9A")
-                color: get_color_from_hex("#C62828")
+                background_color: get_color_from_hex("#E57373")
+                color: get_color_from_hex("#B71C1C")
+                font_size: '22sp'
                 bold: True
+                canvas.before:
+                    Color:
+                        rgba: self.background_color if self.state == 'normal' else [x*0.8 for x in self.background_color]
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [20,]
                 on_release: root.clear_sentence()
 
         BoxLayout:
             orientation: 'horizontal'
+            padding: [20, 20, 20, 20]
+            spacing: 20
             
             # Sidebar: Categories
-            ScrollView:
+            BoxLayout:
                 size_hint_x: 0.25
                 canvas.before:
                     Color:
-                        rgba: 1, 1, 1, 0.8
-                    Rectangle:
+                        rgba: 1, 1, 1, 1
+                    RoundedRectangle:
                         pos: self.pos
                         size: self.size
-                
-                BoxLayout:
-                    id: category_list
-                    orientation: 'vertical'
-                    size_hint_y: None
-                    height: self.minimum_height
-                    padding: 15
-                    spacing: 10
+                        radius: [20,]
+                    Color:
+                        rgba: get_color_from_hex("#E0E0E0")
+                    Line:
+                        rounded_rectangle: (self.x, self.y, self.width, self.height, 20)
+                        width: 1
+                ScrollView:
+                    BoxLayout:
+                        id: category_list
+                        orientation: 'vertical'
+                        size_hint_y: None
+                        height: self.minimum_height
+                        padding: 15
+                        spacing: 15
 
             # Grid: Buttons
             ScrollView:
                 size_hint_x: 0.75
+                canvas.before:
+                    Color:
+                        rgba: 1, 1, 1, 1
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [20,]
                 GridLayout:
                     id: aac_grid
-                    cols: 3
+                    cols: 4  # Increased from 3 to 4 for better use of wide space
                     padding: 20
                     spacing: 20
                     size_hint_y: None

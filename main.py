@@ -18,52 +18,21 @@ from kivy.clock import Clock
 from kivy.graphics import Color, Rectangle, Line, RoundedRectangle
 from kivy.uix.image import Image as KivyImage
 import random
-import threading
 from datetime import datetime, timedelta
 import os
-import pyttsx3
 from pathlib import Path
+import win32com.client
 
 # Import modules and models
 from modules.emotion_ai import EmotionAI
-from modules.camera import CameraCapture
 from models import init_db, Event, AACCategory, AACButton
+from games import GamesHubScreen, EmotionSelectionScreen, EmotionPracticeScreen, MemoryMatchScreen
 
 # Set window background color
 Window.clearcolor = get_color_from_hex("#FDFCF0")
 
 # --- Custom Widgets ---
 
-class Confetti(BoxLayout):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.size_hint = (1, 1)
-        self.pos_hint = {'x': 0, 'y': 0}
-        
-    def start(self):
-        for _ in range(50):
-            self.add_particle()
-            
-    def add_particle(self):
-        with self.canvas:
-            color = Color(random.random(), random.random(), random.random(), 1)
-            size = random.randint(10, 20)
-            rect = Rectangle(pos=(random.randint(0, Window.width), Window.height), size=(size, size))
-            
-        anim_pos = Animation(pos=(rect.pos[0], 0), duration=random.uniform(1, 3), t='out_bounce')
-        anim_alpha = Animation(a=0, duration=random.uniform(1, 3))
-        
-        def cleanup(*args):
-            if rect in self.canvas.children:
-                self.canvas.remove(rect)
-            if color in self.canvas.children:
-                self.canvas.remove(color)
-            
-        anim_pos.bind(on_complete=cleanup)
-        anim_pos.start(rect)
-        anim_alpha.start(color)
-
-# --- Screens ---
 
 class DashboardScreen(Screen):
     def on_enter(self):
@@ -116,23 +85,14 @@ class AACScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.sentence = []
-        self._tts_lock = threading.Lock()
-        self._init_engine()
-
-    def _init_engine(self):
-        """Initialise or re-initialise the pyttsx3 TTS engine."""
-        self.engine = pyttsx3.init()
-        self.engine.setProperty('rate', 150)
+        try:
+            self.speaker = win32com.client.Dispatch("SAPI.SpVoice")
+        except Exception as e:
+            print(f"Failed to load SAPI: {e}")
+            self.speaker = None
 
     def on_enter(self):
         self.load_aac_data()
-
-    def on_leave(self):
-        """Stop the TTS engine when leaving this screen to free resources."""
-        try:
-            self.engine.stop()
-        except Exception:
-            pass
 
     def load_aac_data(self):
         app = App.get_running_app()
@@ -141,15 +101,34 @@ class AACScreen(Screen):
         self.ids.category_list.clear_widgets()
         self.ids.aac_grid.clear_widgets()
 
-        # Add "All" category
-        all_btn = Button(text="All", size_hint_y=None, height=60, bold=True)
+        # Add "All" category at top
+        all_btn = Button(text="All", size_hint_y=None, height=70, font_size='22sp', bold=True)
+        all_btn.background_normal = ''
+        all_btn.background_color = [0, 0, 0, 0]
+        # Draw soft rounded bg
+        with all_btn.canvas.before:
+            Color(*get_color_from_hex("#FFFFFF"))
+            rc1 = RoundedRectangle(pos=all_btn.pos, size=all_btn.size, radius=[15,])
+            Color(*get_color_from_hex("#B0BEC5"))
+            ln1 = Line(rounded_rectangle=(all_btn.x, all_btn.y, all_btn.width, all_btn.height, 15), width=1)
+        all_btn.bind(pos=lambda w, *a: setattr(rc1, 'pos', w.pos) or setattr(ln1, 'rounded_rectangle', (w.x, w.y, w.width, w.height, 15)),
+                     size=lambda w, *a: setattr(rc1, 'size', w.size) or setattr(ln1, 'rounded_rectangle', (w.x, w.y, w.width, w.height, 15)))
+        all_btn.color = get_color_from_hex("#455A64")
         all_btn.bind(on_release=lambda x: self.filter_buttons(None))
         self.ids.category_list.add_widget(all_btn)
 
         for cat in categories:
-            btn = Button(text=cat.name, size_hint_y=None, height=60,
-                        background_normal='', background_color=get_color_from_hex(cat.color or "#E0F7FA"),
-                        color=[0,0,0,1], bold=True)
+            btn = Button(text=cat.name, size_hint_y=None, height=70, font_size='22sp', bold=True)
+            btn.background_normal = ''
+            btn.background_color = [0, 0, 0, 0]
+            with btn.canvas.before:
+                Color(*get_color_from_hex(cat.color or "#E0F7FA"))
+                rc2 = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[15,])
+                Color(0, 0, 0, 0.1)
+                ln2 = Line(rounded_rectangle=(btn.x, btn.y, btn.width, btn.height, 15), width=1)
+            btn.bind(pos=lambda w, *a, r=rc2, l=ln2: setattr(r, 'pos', w.pos) or setattr(l, 'rounded_rectangle', (w.x, w.y, w.width, w.height, 15)),
+                     size=lambda w, *a, r=rc2, l=ln2: setattr(r, 'size', w.size) or setattr(l, 'rounded_rectangle', (w.x, w.y, w.width, w.height, 15)))
+            btn.color = get_color_from_hex("#333333")
             btn.bind(on_release=lambda x, c=cat: self.filter_buttons(c.id))
             self.ids.category_list.add_widget(btn)
 
@@ -165,53 +144,54 @@ class AACScreen(Screen):
         
         buttons = query.all()
         for btn_data in buttons:
-            card = BoxLayout(orientation='vertical', padding=10, spacing=5,
-                             size_hint_y=None, height=180)
+            # We use ButtonBehavior with a clean BoxLayout for perfect alignment
+            class AACGridItem(ButtonBehavior, BoxLayout): pass
             
-            # Draw rounded white card background + subtle border, bound to pos/size
-            with card.canvas.before:
+            box = AACGridItem(orientation='vertical', padding=[15, 20, 15, 10], spacing=10, size_hint_y=None, height=190)
+            with box.canvas.before:
+                # Slight drop shadow via offset faint rects
+                Color(0.85, 0.88, 0.9, 0.8)
+                sh1 = RoundedRectangle(pos=(box.x + 2, box.y - 2), size=box.size, radius=[20,])
                 Color(1, 1, 1, 1)
-                bg_rect = RoundedRectangle(pos=card.pos, size=card.size, radius=[15,])
-                Color(0.85, 0.85, 0.85, 1)
-                border_line = Line(rounded_rectangle=(card.x, card.y, card.width, card.height, 15), width=1.2)
-
-            def _update_card_canvas(widget, *args,
-                                     r=bg_rect, ln=border_line):
-                r.pos = widget.pos
-                r.size = widget.size
-                ln.rounded_rectangle = (widget.x, widget.y, widget.width, widget.height, 15)
-
-            card.bind(pos=_update_card_canvas, size=_update_card_canvas)
-
+                bg1 = RoundedRectangle(pos=box.pos, size=box.size, radius=[20,])
+                Color(0.9, 0.9, 0.9, 1)
+                bdr = Line(rounded_rectangle=(box.x, box.y, box.width, box.height, 20), width=1.2)
+                
+            def upd_box(w, _pos, s1=sh1, b1=bg1, l1=bdr):
+                s1.pos = (w.x + 2, w.y - 2); s1.size = w.size
+                b1.pos = w.pos; b1.size = w.size
+                l1.rounded_rectangle = (w.x, w.y, w.width, w.height, 20)
+            box.bind(pos=upd_box, size=upd_box)
+            
             # Icon handling
             if btn_data.image_path and (btn_data.image_path.endswith('.png') or btn_data.image_path.endswith('.jpg')):
-                icon_widget = KivyImage(source=btn_data.image_path, size_hint_y=0.65)
+                icon_widget = KivyImage(source=btn_data.image_path, size_hint_y=0.7)
             else:
                 icon_widget = Label(text=btn_data.image_path or '🗣️',
-                                    font_size='48sp', color=[0,0,0,1], size_hint_y=0.65)
+                                    font_size='56sp', color=[0,0,0,1], size_hint_y=0.7)
             
-            card.add_widget(icon_widget)
-            card.add_widget(Label(text=btn_data.label, font_size='18sp',
-                                  bold=True, color=[0.2,0.2,0.2,1], size_hint_y=0.35))
-
-            # Bind tap via on_touch_down on the card
-            card.bind(on_touch_down=lambda w, t, b=btn_data:
-                      self.add_to_sentence(b) if w.collide_point(*t.pos) else None)
-            self.ids.aac_grid.add_widget(card)
+            box.add_widget(icon_widget)
+            box.add_widget(Label(text=btn_data.label, font_size='22sp', bold=True, color=get_color_from_hex("#333333"), size_hint_y=0.3))
+            
+            box.bind(on_release=lambda x, b=btn_data: self.add_to_sentence(b))
+            self.ids.aac_grid.add_widget(box)
 
     def add_to_sentence(self, btn_data):
         self.sentence.append(btn_data)
-        label = Label(text=btn_data.label, size_hint_x=None, width=110,
-                      color=[0.2,0.2,0.2,1], bold=True)
+        label = Label(text=btn_data.label, size_hint_x=None, width=130, font_size='20sp',
+                      color=get_color_from_hex("#1565C0"), bold=True)
 
-        # Draw chip background, bound to label pos/size so it moves correctly
+        # Draw chip premium background
         with label.canvas.before:
-            chip_color = Color(1, 0.95, 0.8, 1)
-            chip_rect = RoundedRectangle(pos=label.pos, size=label.size, radius=[10,])
+            Color(*get_color_from_hex("#E3F2FD"))
+            chip_rect = RoundedRectangle(pos=label.pos, size=label.size, radius=[18,])
+            Color(*get_color_from_hex("#64B5F6"))
+            chip_line = Line(rounded_rectangle=(label.x, label.y, label.width, label.height, 18), width=1.5)
 
-        def _update_chip(widget, *args, r=chip_rect):
+        def _update_chip(widget, *args, r=chip_rect, l=chip_line):
             r.pos = widget.pos
             r.size = widget.size
+            l.rounded_rectangle = (widget.x, widget.y, widget.width, widget.height, 18)
 
         label.bind(pos=_update_chip, size=_update_chip)
         self.ids.sentence_display.add_widget(label)
@@ -227,15 +207,12 @@ class AACScreen(Screen):
         self.ids.sentence_display.clear_widgets()
 
     def speak(self, text):
-        """Speak text in a background thread so the UI never freezes."""
-        def _run():
-            with self._tts_lock:
-                try:
-                    self.engine.say(text)
-                    self.engine.runAndWait()
-                except Exception as e:
-                    print(f"TTS error: {e}")
-        threading.Thread(target=_run, daemon=True).start()
+        if hasattr(self, 'speaker') and self.speaker:
+            try:
+                # 1 = SVSFlagsAsync (Plays speech without freezing application)
+                self.speaker.Speak(text, 1)
+            except Exception as e:
+                print(f"TTS error: {e}")
 
 class AdminScreen(Screen):
     def on_enter(self):
@@ -394,122 +371,7 @@ class SchedulerScreen(Screen):
 
 # --- Emotion Screens (Existing) ---
 
-class EmotionCard(ButtonBehavior, BoxLayout):
-    emotion_name = StringProperty()
-    emotion_emoji = StringProperty()
-    emotion_color = ObjectProperty()
-    emotion_image = StringProperty()
-    
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.orientation = 'vertical'
-        self.size_hint = (None, None)
-        self.size = (200, 250)
-        self.padding = 20
-        self.spacing = 10
-        with self.canvas.before:
-            self.bg_color = Color(*self.emotion_color)
-            from kivy.graphics import RoundedRectangle
-            self.bg_rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[15,])
-        self.bind(pos=self.update_rect, size=self.update_rect)
-        
-        # Icon handling
-        if self.emotion_image and Path(self.emotion_image).exists():
-            icon_widget = KivyImage(source=self.emotion_image, size_hint_y=0.6)
-        else:
-            icon_widget = Label(text=self.emotion_emoji, font_size='80sp', size_hint_y=0.6)
-            
-        self.add_widget(icon_widget)
-        self.add_widget(Label(text=self.emotion_name, font_size='24sp', bold=True, color=(1, 1, 1, 1), size_hint_y=0.4))
-    
-    def update_rect(self, *args):
-        self.bg_rect.pos = self.pos
-        self.bg_rect.size = self.size
-    
-    def on_release(self):
-        app = App.get_running_app()
-        practice_screen = app.root.get_screen('emotion_practice')
-        practice_screen.set_target_emotion(self.emotion_name)
-        app.root.current = 'emotion_practice'
 
-class EmotionSelectionScreen(Screen):
-    def on_enter(self):
-        container = self.ids.emotion_cards_container
-        container.clear_widgets()
-        emotions_data = [
-            ('Happy', '😊', get_color_from_hex("#FFD700"), "assets/emotions/happy.png"),
-            ('Sad', '😢', get_color_from_hex("#4169E1"), "assets/emotions/sad.png"),
-            ('Angry', '😠', get_color_from_hex("#DC143C"), "assets/emotions/angry.png"),
-            ('Surprise', '😲', get_color_from_hex("#FF69B4"), "assets/emotions/surprise.png"),
-            ('Fear', '😨', get_color_from_hex("#9370DB"), "assets/emotions/fear.png"),
-            ('Neutral', '😐', get_color_from_hex("#808080"), "assets/emotions/neutral.png"),
-        ]
-        for name, emoji, color, img in emotions_data:
-            container.add_widget(EmotionCard(emotion_name=name, emotion_emoji=emoji, emotion_color=color, emotion_image=img))
-
-class EmotionPracticeScreen(Screen):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.camera = None
-        self.emotion_update_event = None
-        self.target_emotion = None
-        self.success_shown = False
-        
-    def set_target_emotion(self, emotion):
-        self.target_emotion = emotion
-        self.success_shown = False
-        
-    def on_enter(self):
-        if self.target_emotion:
-            self.ids.target_emotion_label.text = f"Show me: {self.target_emotion}"
-        self.ids.next_button.opacity = 0
-        self.ids.next_button.disabled = True
-        if self.camera is None:
-            self.setup_camera()
-        Clock.schedule_once(lambda dt: self.camera.start(), 0.5)
-        self.emotion_update_event = Clock.schedule_interval(self.update_emotion, 0.2)
-    
-    def setup_camera(self):
-        self.camera = CameraCapture(camera_index=0, fps=30)
-        self.ids.camera_container.add_widget(self.camera)
-    
-    def update_emotion(self, dt):
-        if not self.camera or not self.camera.is_running: return
-        frame = self.camera.get_frame()
-        if frame is None: return
-        app = App.get_running_app()
-        result = app.emotion_ai.predict(frame)
-        self.provide_feedback(result)
-    
-    def provide_feedback(self, result):
-        if not result['face_detected']:
-            self.ids.feedback_label.text = "No face detected"
-            return
-        
-        detected = result['emotion']
-        if detected == self.target_emotion and result['confidence'] > 0.4:
-            self.ids.feedback_label.text = f"Perfect! You showed {self.target_emotion}!"
-            if not self.success_shown:
-                self.success_shown = True
-                self.show_confetti()
-                self.ids.next_button.opacity = 1
-                self.ids.next_button.disabled = False
-        else:
-            self.ids.feedback_label.text = f"Detected: {detected}"
-
-    def show_confetti(self):
-        c = Confetti()
-        self.add_widget(c)
-        c.start()
-        Clock.schedule_once(lambda dt: self.remove_widget(c), 3)
-    
-    def go_back(self):
-        self.camera.stop()
-        if self.emotion_update_event: Clock.unschedule(self.emotion_update_event)
-        App.get_running_app().root.current = 'emotion_selection'
-    
-    def return_to_selection(self):
-        self.go_back()
 
 class AutismLearningHubApp(App):
     def build(self):
@@ -532,6 +394,8 @@ class AutismLearningHubApp(App):
         sm.add_widget(AdminScreen(name='admin'))
         sm.add_widget(EmotionSelectionScreen(name='emotion_selection'))
         sm.add_widget(EmotionPracticeScreen(name='emotion_practice'))
+        sm.add_widget(GamesHubScreen(name='games'))
+        sm.add_widget(MemoryMatchScreen(name='memory_match'))
         
         return sm
 
