@@ -240,10 +240,8 @@
                 on_release: app.root.current = 'dashboard'
 
             # Sentence Builder Display
-            BoxLayout:
-                id: sentence_display
-                padding: 10
-                spacing: 10
+            ScrollView:
+                do_scroll_y: False
                 canvas.before:
                     Color:
                         rgba: get_color_from_hex("#F5F5F5")
@@ -251,6 +249,12 @@
                         pos: self.pos
                         size: self.size
                         radius: [15,]
+                BoxLayout:
+                    id: sentence_display
+                    padding: 10
+                    spacing: 10
+                    size_hint_x: None
+                    width: self.minimum_width
             
             Button:
                 text: "🔊 Speak"

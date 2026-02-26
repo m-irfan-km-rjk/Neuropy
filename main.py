@@ -18,11 +18,8 @@ from kivy.clock import Clock
 from kivy.graphics import Color, Rectangle, Line, RoundedRectangle
 from kivy.uix.image import Image as KivyImage
 import random
-import threading
-import queue
 from datetime import datetime, timedelta
 import os
-import pyttsx3
 from pathlib import Path
 
 # Import modules and models
@@ -117,46 +114,11 @@ class AACScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.sentence = []
-        self._tts_queue = queue.Queue()
-        self._tts_thread = threading.Thread(target=self._tts_worker, daemon=True)
-        self._tts_thread.start()
-
-    def _make_engine(self):
-        """Create a fresh pyttsx3 engine instance."""
-        engine = pyttsx3.init()
-        engine.setProperty('rate', 150)
-        return engine
-
-    def _tts_worker(self):
-        """Persistent worker thread: processes speech requests one at a time.
-        Re-initialises the engine automatically if it ever errors."""
-        engine = self._make_engine()
-        while True:
-            text = self._tts_queue.get()   # blocks until something is queued
-            if text is None:               # sentinel: shut down the thread
-                break
-            try:
-                engine.say(text)
-                engine.runAndWait()
-            except Exception as e:
-                print(f"TTS error: {e} — reinitialising engine")
-                # Re-create a clean engine so the next word works
-                try:
-                    engine.stop()
-                except Exception:
-                    pass
-                engine = self._make_engine()
-            finally:
-                self._tts_queue.task_done()
+        self.engine = pyttsx3.init()
+        self.engine.setProperty('rate', 150)
 
     def on_enter(self):
         self.load_aac_data()
-
-    def on_leave(self):
-        """No-op: the persistent thread keeps running across screen changes
-        so the engine stays warm. The thread is daemon so it auto-exits
-        with the app."""
-        pass
 
     def load_aac_data(self):
         app = App.get_running_app()
@@ -189,24 +151,12 @@ class AACScreen(Screen):
         
         buttons = query.all()
         for btn_data in buttons:
-            card = BoxLayout(orientation='vertical', padding=10, spacing=5,
-                             size_hint_y=None, height=180)
+            btn = Button(size_hint_y=None, height=180)
+            btn.background_normal = ''
+            btn.background_color = [1, 1, 1, 1]
             
-            # Draw rounded white card background + subtle border, bound to pos/size
-            with card.canvas.before:
-                Color(1, 1, 1, 1)
-                bg_rect = RoundedRectangle(pos=card.pos, size=card.size, radius=[15,])
-                Color(0.85, 0.85, 0.85, 1)
-                border_line = Line(rounded_rectangle=(card.x, card.y, card.width, card.height, 15), width=1.2)
-
-            def _update_card_canvas(widget, *args,
-                                     r=bg_rect, ln=border_line):
-                r.pos = widget.pos
-                r.size = widget.size
-                ln.rounded_rectangle = (widget.x, widget.y, widget.width, widget.height, 15)
-
-            card.bind(pos=_update_card_canvas, size=_update_card_canvas)
-
+            layout = BoxLayout(orientation='vertical', padding=10)
+            
             # Icon handling
             if btn_data.image_path and (btn_data.image_path.endswith('.png') or btn_data.image_path.endswith('.jpg')):
                 icon_widget = KivyImage(source=btn_data.image_path, size_hint_y=0.65)
@@ -214,14 +164,12 @@ class AACScreen(Screen):
                 icon_widget = Label(text=btn_data.image_path or '🗣️',
                                     font_size='48sp', color=[0,0,0,1], size_hint_y=0.65)
             
-            card.add_widget(icon_widget)
-            card.add_widget(Label(text=btn_data.label, font_size='18sp',
-                                  bold=True, color=[0.2,0.2,0.2,1], size_hint_y=0.35))
-
-            # Bind tap via on_touch_down on the card
-            card.bind(on_touch_down=lambda w, t, b=btn_data:
-                      self.add_to_sentence(b) if w.collide_point(*t.pos) else None)
-            self.ids.aac_grid.add_widget(card)
+            layout.add_widget(icon_widget)
+            layout.add_widget(Label(text=btn_data.label, font_size='20sp', bold=True, color=[0,0,0,1], size_hint_y=0.3))
+            
+            btn.add_widget(layout)
+            btn.bind(on_release=lambda x, b=btn_data: self.add_to_sentence(b))
+            self.ids.aac_grid.add_widget(btn)
 
     def add_to_sentence(self, btn_data):
         self.sentence.append(btn_data)
@@ -251,8 +199,8 @@ class AACScreen(Screen):
         self.ids.sentence_display.clear_widgets()
 
     def speak(self, text):
-        """Queue text for speech — returns immediately; never blocks the UI."""
-        self._tts_queue.put(text)
+        self.engine.say(text)
+        self.engine.runAndWait()
 
 class AdminScreen(Screen):
     def on_enter(self):
