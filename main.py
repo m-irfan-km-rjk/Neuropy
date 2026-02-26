@@ -21,7 +21,7 @@ import random
 from datetime import datetime, timedelta
 import os
 from pathlib import Path
-import pyttsx3
+import win32com.client
 
 # Import modules and models
 from modules.emotion_ai import EmotionAI
@@ -85,8 +85,11 @@ class AACScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.sentence = []
-        self.engine = pyttsx3.init()
-        self.engine.setProperty('rate', 150)
+        try:
+            self.speaker = win32com.client.Dispatch("SAPI.SpVoice")
+        except Exception as e:
+            print(f"Failed to load SAPI: {e}")
+            self.speaker = None
 
     def on_enter(self):
         self.load_aac_data()
@@ -98,15 +101,34 @@ class AACScreen(Screen):
         self.ids.category_list.clear_widgets()
         self.ids.aac_grid.clear_widgets()
 
-        # Add "All" category
-        all_btn = Button(text="All", size_hint_y=None, height=60, bold=True)
+        # Add "All" category at top
+        all_btn = Button(text="All", size_hint_y=None, height=70, font_size='22sp', bold=True)
+        all_btn.background_normal = ''
+        all_btn.background_color = [0, 0, 0, 0]
+        # Draw soft rounded bg
+        with all_btn.canvas.before:
+            Color(*get_color_from_hex("#FFFFFF"))
+            rc1 = RoundedRectangle(pos=all_btn.pos, size=all_btn.size, radius=[15,])
+            Color(*get_color_from_hex("#B0BEC5"))
+            ln1 = Line(rounded_rectangle=(all_btn.x, all_btn.y, all_btn.width, all_btn.height, 15), width=1)
+        all_btn.bind(pos=lambda w, *a: setattr(rc1, 'pos', w.pos) or setattr(ln1, 'rounded_rectangle', (w.x, w.y, w.width, w.height, 15)),
+                     size=lambda w, *a: setattr(rc1, 'size', w.size) or setattr(ln1, 'rounded_rectangle', (w.x, w.y, w.width, w.height, 15)))
+        all_btn.color = get_color_from_hex("#455A64")
         all_btn.bind(on_release=lambda x: self.filter_buttons(None))
         self.ids.category_list.add_widget(all_btn)
 
         for cat in categories:
-            btn = Button(text=cat.name, size_hint_y=None, height=60,
-                        background_normal='', background_color=get_color_from_hex(cat.color or "#E0F7FA"),
-                        color=[0,0,0,1], bold=True)
+            btn = Button(text=cat.name, size_hint_y=None, height=70, font_size='22sp', bold=True)
+            btn.background_normal = ''
+            btn.background_color = [0, 0, 0, 0]
+            with btn.canvas.before:
+                Color(*get_color_from_hex(cat.color or "#E0F7FA"))
+                rc2 = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[15,])
+                Color(0, 0, 0, 0.1)
+                ln2 = Line(rounded_rectangle=(btn.x, btn.y, btn.width, btn.height, 15), width=1)
+            btn.bind(pos=lambda w, *a, r=rc2, l=ln2: setattr(r, 'pos', w.pos) or setattr(l, 'rounded_rectangle', (w.x, w.y, w.width, w.height, 15)),
+                     size=lambda w, *a, r=rc2, l=ln2: setattr(r, 'size', w.size) or setattr(l, 'rounded_rectangle', (w.x, w.y, w.width, w.height, 15)))
+            btn.color = get_color_from_hex("#333333")
             btn.bind(on_release=lambda x, c=cat: self.filter_buttons(c.id))
             self.ids.category_list.add_widget(btn)
 
@@ -122,39 +144,54 @@ class AACScreen(Screen):
         
         buttons = query.all()
         for btn_data in buttons:
-            btn = Button(size_hint_y=None, height=180)
-            btn.background_normal = ''
-            btn.background_color = [1, 1, 1, 1]
+            # We use ButtonBehavior with a clean BoxLayout for perfect alignment
+            class AACGridItem(ButtonBehavior, BoxLayout): pass
             
-            layout = BoxLayout(orientation='vertical', padding=10)
+            box = AACGridItem(orientation='vertical', padding=[15, 20, 15, 10], spacing=10, size_hint_y=None, height=190)
+            with box.canvas.before:
+                # Slight drop shadow via offset faint rects
+                Color(0.85, 0.88, 0.9, 0.8)
+                sh1 = RoundedRectangle(pos=(box.x + 2, box.y - 2), size=box.size, radius=[20,])
+                Color(1, 1, 1, 1)
+                bg1 = RoundedRectangle(pos=box.pos, size=box.size, radius=[20,])
+                Color(0.9, 0.9, 0.9, 1)
+                bdr = Line(rounded_rectangle=(box.x, box.y, box.width, box.height, 20), width=1.2)
+                
+            def upd_box(w, _pos, s1=sh1, b1=bg1, l1=bdr):
+                s1.pos = (w.x + 2, w.y - 2); s1.size = w.size
+                b1.pos = w.pos; b1.size = w.size
+                l1.rounded_rectangle = (w.x, w.y, w.width, w.height, 20)
+            box.bind(pos=upd_box, size=upd_box)
             
             # Icon handling
             if btn_data.image_path and (btn_data.image_path.endswith('.png') or btn_data.image_path.endswith('.jpg')):
-                icon_widget = KivyImage(source=btn_data.image_path, size_hint_y=0.65)
+                icon_widget = KivyImage(source=btn_data.image_path, size_hint_y=0.7)
             else:
                 icon_widget = Label(text=btn_data.image_path or '🗣️',
-                                    font_size='48sp', color=[0,0,0,1], size_hint_y=0.65)
+                                    font_size='56sp', color=[0,0,0,1], size_hint_y=0.7)
             
-            layout.add_widget(icon_widget)
-            layout.add_widget(Label(text=btn_data.label, font_size='20sp', bold=True, color=[0,0,0,1], size_hint_y=0.3))
+            box.add_widget(icon_widget)
+            box.add_widget(Label(text=btn_data.label, font_size='22sp', bold=True, color=get_color_from_hex("#333333"), size_hint_y=0.3))
             
-            btn.add_widget(layout)
-            btn.bind(on_release=lambda x, b=btn_data: self.add_to_sentence(b))
-            self.ids.aac_grid.add_widget(btn)
+            box.bind(on_release=lambda x, b=btn_data: self.add_to_sentence(b))
+            self.ids.aac_grid.add_widget(box)
 
     def add_to_sentence(self, btn_data):
         self.sentence.append(btn_data)
-        label = Label(text=btn_data.label, size_hint_x=None, width=110,
-                      color=[0.2,0.2,0.2,1], bold=True)
+        label = Label(text=btn_data.label, size_hint_x=None, width=130, font_size='20sp',
+                      color=get_color_from_hex("#1565C0"), bold=True)
 
-        # Draw chip background, bound to label pos/size so it moves correctly
+        # Draw chip premium background
         with label.canvas.before:
-            chip_color = Color(1, 0.95, 0.8, 1)
-            chip_rect = RoundedRectangle(pos=label.pos, size=label.size, radius=[10,])
+            Color(*get_color_from_hex("#E3F2FD"))
+            chip_rect = RoundedRectangle(pos=label.pos, size=label.size, radius=[18,])
+            Color(*get_color_from_hex("#64B5F6"))
+            chip_line = Line(rounded_rectangle=(label.x, label.y, label.width, label.height, 18), width=1.5)
 
-        def _update_chip(widget, *args, r=chip_rect):
+        def _update_chip(widget, *args, r=chip_rect, l=chip_line):
             r.pos = widget.pos
             r.size = widget.size
+            l.rounded_rectangle = (widget.x, widget.y, widget.width, widget.height, 18)
 
         label.bind(pos=_update_chip, size=_update_chip)
         self.ids.sentence_display.add_widget(label)
@@ -170,8 +207,12 @@ class AACScreen(Screen):
         self.ids.sentence_display.clear_widgets()
 
     def speak(self, text):
-        self.engine.say(text)
-        self.engine.runAndWait()
+        if hasattr(self, 'speaker') and self.speaker:
+            try:
+                # 1 = SVSFlagsAsync (Plays speech without freezing application)
+                self.speaker.Speak(text, 1)
+            except Exception as e:
+                print(f"TTS error: {e}")
 
 class AdminScreen(Screen):
     def on_enter(self):
