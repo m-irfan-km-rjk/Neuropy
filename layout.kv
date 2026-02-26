@@ -237,7 +237,6 @@
                 background_color: get_color_from_hex("#FFF9C4")
                 color: get_color_from_hex("#F57F17")
                 bold: True
-                border_radius: [15,]
                 on_release: app.root.current = 'dashboard'
 
             # Sentence Builder Display
@@ -324,7 +323,7 @@
             height: 60
             spacing: 10
             Label:
-                text: "Parent Admin: Schedule"
+                text: "Manage Schedule"
                 font_size: '32sp'
                 bold: True
                 color: get_color_from_hex("#333333")
@@ -478,6 +477,16 @@
                 font_size: '32sp'
                 bold: True
                 color: get_color_from_hex("#555555")
+            
+            Button:
+                text: "✏️ Manage"
+                size_hint_x: None
+                width: 150
+                background_normal: ''
+                background_color: get_color_from_hex("#7B1FA2")
+                color: 1, 1, 1, 1
+                bold: True
+                on_release: app.root.current = 'admin'
 
         # Timeline
         ScrollView:

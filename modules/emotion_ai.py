@@ -16,7 +16,7 @@ class EmotionAI:
     """
     
     # Emotion labels for FER-2013 dataset (7 emotions)
-    EMOTIONS = ['Angry', "Contempt",'Disgust', 'Fear', 'Happy', 'Neutral','Sad', 'Surprise']
+    EMOTIONS = ['Angry', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
     
     def __init__(self, model_path='models/mini_xception.tflite'):
         """
