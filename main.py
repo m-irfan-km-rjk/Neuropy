@@ -18,10 +18,9 @@ from kivy.clock import Clock
 from kivy.graphics import Color, Rectangle, Line, RoundedRectangle
 from kivy.uix.image import Image as KivyImage
 import random
-import threading
+import win32com.client
 from datetime import datetime, timedelta
 import os
-import pyttsx3
 from pathlib import Path
 
 # Import modules and models
@@ -116,23 +115,17 @@ class AACScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.sentence = []
-        self._tts_lock = threading.Lock()
-        self._init_engine()
-
-    def _init_engine(self):
-        """Initialise or re-initialise the pyttsx3 TTS engine."""
-        self.engine = pyttsx3.init()
-        self.engine.setProperty('rate', 150)
+        try:
+            self.speaker = win32com.client.Dispatch("SAPI.SpVoice")
+        except Exception as e:
+            print(f"Failed to load SAPI: {e}")
+            self.speaker = None
 
     def on_enter(self):
         self.load_aac_data()
 
     def on_leave(self):
-        """Stop the TTS engine when leaving this screen to free resources."""
-        try:
-            self.engine.stop()
-        except Exception:
-            pass
+        pass
 
     def load_aac_data(self):
         app = App.get_running_app()
@@ -165,8 +158,12 @@ class AACScreen(Screen):
         
         buttons = query.all()
         for btn_data in buttons:
-            card = BoxLayout(orientation='vertical', padding=10, spacing=5,
-                             size_hint_y=None, height=180)
+            # Create a ButtonBehavior + BoxLayout instance dynamically
+            class AACCard(ButtonBehavior, BoxLayout):
+                pass
+                
+            card = AACCard(orientation='vertical', padding=10, spacing=5,
+                           size_hint_y=None, height=180)
             
             # Draw rounded white card background + subtle border, bound to pos/size
             with card.canvas.before:
@@ -194,9 +191,8 @@ class AACScreen(Screen):
             card.add_widget(Label(text=btn_data.label, font_size='18sp',
                                   bold=True, color=[0.2,0.2,0.2,1], size_hint_y=0.35))
 
-            # Bind tap via on_touch_down on the card
-            card.bind(on_touch_down=lambda w, t, b=btn_data:
-                      self.add_to_sentence(b) if w.collide_point(*t.pos) else None)
+            # Bind reliable tap via on_release
+            card.bind(on_release=lambda instance, b=btn_data: self.add_to_sentence(b))
             self.ids.aac_grid.add_widget(card)
 
     def add_to_sentence(self, btn_data):
@@ -227,15 +223,13 @@ class AACScreen(Screen):
         self.ids.sentence_display.clear_widgets()
 
     def speak(self, text):
-        """Speak text in a background thread so the UI never freezes."""
-        def _run():
-            with self._tts_lock:
-                try:
-                    self.engine.say(text)
-                    self.engine.runAndWait()
-                except Exception as e:
-                    print(f"TTS error: {e}")
-        threading.Thread(target=_run, daemon=True).start()
+        """Play TTS clearly in the background without locking or crashing UI."""
+        if self.speaker:
+            try:
+                # 1 = SVSFlagsAsync (Plays speech without freezing application)
+                self.speaker.Speak(text, 1)
+            except Exception as e:
+                print(f"TTS error: {e}")
 
 class AdminScreen(Screen):
     def on_enter(self):
