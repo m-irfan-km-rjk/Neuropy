@@ -33,7 +33,21 @@ Window.clearcolor = get_color_from_hex("#FDFCF0")
 
 # --- Custom Widgets ---
 
+from kivy.uix.widget import Widget
+from kivy.graphics import Ellipse, Triangle, Quad
 
+def _get_emoji_font():
+    """Helper to get the path to a font that supports emojis on Windows, or default."""
+    import os
+    if os.path.exists("C:/Windows/Fonts/seguiemj.ttf"):
+        return "C:/Windows/Fonts/seguiemj.ttf"
+    elif os.path.exists("C:/Windows/Fonts/seguihis.ttf"):
+        return "C:/Windows/Fonts/seguihis.ttf" 
+    return "Roboto" # Fallback
+
+def _create_emoji_label(text, font_size, **kwargs):
+    lbl = Label(text=text, font_size=font_size, font_name=_get_emoji_font(), **kwargs)
+    return lbl
 class DashboardScreen(Screen):
     def on_enter(self):
         self.update_info()
@@ -74,12 +88,12 @@ class DashboardScreen(Screen):
         if not icon_data:
             icon_data = "📍"
 
-        if icon_data.endswith('.png') or icon_data.endswith('.jpg'):
+        if icon_data.endswith('.png') or icon_data.endswith('.jpg') or icon_data.endswith('.jpeg'):
             img = KivyImage(source=icon_data, allow_stretch=True, keep_ratio=True)
             parent_widget.add_widget(img)
         else:
-            lbl = Label(text=icon_data, font_size='80sp')
-            parent_widget.add_widget(lbl)
+            icon_widget = _create_emoji_label(icon_data, font_size='80sp')
+            parent_widget.add_widget(icon_widget)
 
 class AACScreen(Screen):
     def __init__(self, **kwargs):
@@ -118,7 +132,10 @@ class AACScreen(Screen):
         self.ids.category_list.add_widget(all_btn)
 
         for cat in categories:
-            btn = Button(text=cat.name, size_hint_y=None, height=70, font_size='22sp', bold=True)
+            btn = Button(
+                text=cat.name,
+                font_name=_get_emoji_font(),
+                size_hint_y=None, height=70, font_size='22sp', bold=True)
             btn.background_normal = ''
             btn.background_color = [0, 0, 0, 0]
             with btn.canvas.before:
@@ -168,7 +185,7 @@ class AACScreen(Screen):
                 icon_widget = KivyImage(source=btn_data.image_path, size_hint_y=0.7)
             else:
                 icon_widget = Label(text=btn_data.image_path or '🗣️',
-                                    font_size='56sp', color=[0,0,0,1], size_hint_y=0.7)
+                                    font_size='56sp', color=[0,0,0,1], size_hint_y=0.7, font_name=_get_emoji_font())
             
             box.add_widget(icon_widget)
             box.add_widget(Label(text=btn_data.label, font_size='22sp', bold=True, color=get_color_from_hex("#333333"), size_hint_y=0.3))
@@ -233,7 +250,7 @@ class AdminScreen(Screen):
             if ev.icon_path and (ev.icon_path.endswith('.png') or ev.icon_path.endswith('.jpg')):
                 icon_widget = KivyImage(source=ev.icon_path, size_hint_x=0.1)
             else:
-                icon_widget = Label(text=ev.icon_path or '📅', font_size='30sp', size_hint_x=0.1, color=[0,0,0,1])
+                icon_widget = _create_emoji_label(ev.icon_path or '📅', font_size='40sp', size_hint_x=0.1, color=[0,0,0,1])
             
             row.add_widget(icon_widget)
             info = BoxLayout(orientation='vertical', size_hint_x=0.7)
@@ -254,8 +271,8 @@ class AdminScreen(Screen):
         end = self.ids.end_hour.text.strip()
         icon = self.ids.task_icon.text.strip()
 
-        if not title or not start or not end:
-            self._show_error("Please fill in title, start time, and end time.")
+        if not title or not start or not end or not icon:
+            self._show_error("Please fill in title, start time, end time, and an icon/emoji.")
             return
 
         try:
@@ -355,7 +372,7 @@ class SchedulerScreen(Screen):
             if ev.icon_path and (ev.icon_path.endswith('.png') or ev.icon_path.endswith('.jpg')):
                 icon_widget = KivyImage(source=ev.icon_path, size_hint_x=0.2)
             else:
-                icon_widget = Label(text=ev.icon_path or '📅', font_size='50sp', size_hint_x=0.2)
+                icon_widget = _create_emoji_label(ev.icon_path or '📅', font_size='50sp', size_hint_x=0.2, color=[0,0,0,1])
             card.add_widget(icon_widget)
             
             info = BoxLayout(orientation='vertical', size_hint_x=0.6)
