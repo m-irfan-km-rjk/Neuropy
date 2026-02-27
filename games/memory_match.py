@@ -134,6 +134,8 @@ class TileButton(ButtonBehavior, BoxLayout):
         self.shape_col  = shape_col
         self.size_hint = (1, 1)
         self._showing_front = False
+        self.is_wrong = False
+        self.is_hint = False
         
         from kivy.graphics import InstructionGroup
         self.draw_group = InstructionGroup()
@@ -156,8 +158,13 @@ class TileButton(ButtonBehavior, BoxLayout):
         self.draw_group.add(RoundedRectangle(pos=(self.x + 2, self.y - 2), size=(w, h), radius=[16]))
         self.draw_group.add(Color(*TILE_BACK_COLOR))
         self.draw_group.add(RoundedRectangle(pos=self.pos, size=self.size, radius=[16]))
-        self.draw_group.add(Color(*TILE_BACK_BORDER))
-        self.draw_group.add(Line(rounded_rectangle=(self.x, self.y, w, h, 16), width=2))
+        
+        if getattr(self, 'is_hint', False):
+            self.draw_group.add(Color(*get_color_from_hex("#FFD700"))) # Gold border
+            self.draw_group.add(Line(rounded_rectangle=(self.x, self.y, w, h, 16), width=6))
+        else:
+            self.draw_group.add(Color(*TILE_BACK_BORDER))
+            self.draw_group.add(Line(rounded_rectangle=(self.x, self.y, w, h, 16), width=2))
             
         if not hasattr(self, '_lbl'):
             self._lbl = Label(
@@ -184,9 +191,13 @@ class TileButton(ButtonBehavior, BoxLayout):
         self.draw_group.add(Color(*TILE_FRONT_COLOR))
         self.draw_group.add(RoundedRectangle(pos=self.pos, size=self.size, radius=[16]))
         
-        self.draw_group.add(Color(*TILE_FRONT_BORDER))
-        border_w = 4 if self.revealed else 2
-        self.draw_group.add(Line(rounded_rectangle=(self.x, self.y, w, h, 16), width=border_w))
+        if getattr(self, 'is_wrong', False):
+            self.draw_group.add(Color(*get_color_from_hex("#E53935"))) # Red border
+            self.draw_group.add(Line(rounded_rectangle=(self.x, self.y, w, h, 16), width=8))
+        else:
+            self.draw_group.add(Color(*TILE_FRONT_BORDER))
+            border_w = 4 if self.revealed else 2
+            self.draw_group.add(Line(rounded_rectangle=(self.x, self.y, w, h, 16), width=border_w))
 
         if hasattr(self, '_lbl'):
             self._lbl.opacity = 0
@@ -222,10 +233,22 @@ class TileButton(ButtonBehavior, BoxLayout):
 
     def mark_matched(self):
         self.revealed = True
-        self._draw_front()
+        self._redraw()
         pulse = (Animation(size_hint_x=1.05, size_hint_y=1.05, duration=0.3) +
                  Animation(size_hint_x=1.0,  size_hint_y=1.0,  duration=0.3))
         pulse.start(self)
+
+    def mark_wrong(self):
+        self.is_wrong = True
+        self._redraw()
+        pulse = (Animation(size_hint_x=0.95, size_hint_y=0.95, duration=0.1) +
+                 Animation(size_hint_x=1.0,  size_hint_y=1.0,  duration=0.1))
+        pulse.start(self)
+
+    def clear_wrong(self):
+        if getattr(self, 'is_wrong', False):
+            self.is_wrong = False
+            self._redraw()
 
     def on_press(self):
         # Only gentle bounce on press, logic handles flip
@@ -249,6 +272,8 @@ class MemoryMatchGame(BoxLayout):
         self._tiles_up   = []
         self._locked     = False
         self._matches    = 0
+        self._consecutive_misses = 0
+        self._hinted_tile = None
         self._started    = False
         self._level      = 1 # 1: 3x2, 2: 4x3, 3: 4x4
         self._cols       = 3
@@ -336,6 +361,8 @@ class MemoryMatchGame(BoxLayout):
         self._tiles_up   = []
         self._locked     = True # Lock during preview
         self._matches    = 0
+        self._consecutive_misses = 0
+        self._hinted_tile = None
         self._started    = False
         
         if self._level == 1:
@@ -405,8 +432,26 @@ class MemoryMatchGame(BoxLayout):
         if not self._started:
             self._started = True
 
+        if getattr(self, '_hinted_tile', None):
+            self._hinted_tile.is_hint = False
+            self._hinted_tile._redraw()
+            self._hinted_tile = None
+
         tile.flip_to_front()
         self._tiles_up.append(tile)
+
+        if len(self._tiles_up) == 1:
+            if getattr(self, '_consecutive_misses', 0) >= 3:
+                t1 = self._tiles_up[0]
+                for t in self._all_tiles:
+                    if t != t1 and t.shape_name == t1.shape_name and not t.revealed:
+                        t.is_hint = True
+                        t._redraw()
+                        pulse = (Animation(size_hint_x=1.05, size_hint_y=1.05, duration=0.4) +
+                                 Animation(size_hint_x=1.0,  size_hint_y=1.0,  duration=0.4))
+                        pulse.start(t)
+                        self._hinted_tile = t
+                        break
 
         if len(self._tiles_up) == 2:
             self._locked = True
@@ -418,11 +463,15 @@ class MemoryMatchGame(BoxLayout):
         if t1.shape_name == t2.shape_name:
             self._handle_match(t1, t2)
         else:
+            self._consecutive_misses = getattr(self, '_consecutive_misses', 0) + 1
+            t1.mark_wrong()
+            t2.mark_wrong()
             self._info_lbl.text = random.choice(MISS_MSGS)
-            self._info_lbl.color = get_color_from_hex("#FFA726") # Soft orange for mismatch
+            self._info_lbl.color = get_color_from_hex("#E53935") # More visible red
             Clock.schedule_once(lambda dt: self._flip_back(t1, t2), MATCH_DUR)
 
     def _handle_match(self, t1, t2):
+        self._consecutive_misses = 0
         t1.mark_matched()
         t2.mark_matched()
         self._matches += 1
@@ -437,6 +486,8 @@ class MemoryMatchGame(BoxLayout):
             Clock.schedule_once(self._show_win, 0.8)
 
     def _flip_back(self, t1, t2, *args):
+        t1.clear_wrong()
+        t2.clear_wrong()
         t1.flip_to_back()
         t2.flip_to_back()
         self._tiles_up = []
