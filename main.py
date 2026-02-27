@@ -36,58 +36,18 @@ Window.clearcolor = get_color_from_hex("#FDFCF0")
 from kivy.uix.widget import Widget
 from kivy.graphics import Ellipse, Triangle, Quad
 
-def _create_emoji_widget(emoji_text, **kwargs):
-    """Creates a widget with shapes that mimic common emojis to avoid font rendering issues."""
-    w = Widget(**kwargs)
-    with w.canvas:
-        # We will bind the draw to size and pos
-        pass
-        
-    def _draw_shape(instance, *args):
-        instance.canvas.clear()
-        cx, cy = instance.center_x, instance.center_y
-        size = min(instance.width, instance.height) * 0.4
-        
-        with instance.canvas:
-            if "🥣" in emoji_text or "meal" in emoji_text.lower():
-                Color(*get_color_from_hex("#FFCC80")) # Bowl orange
-                Ellipse(pos=(cx-size, cy-size*0.5), size=(size*2, size))
-            elif "🚌" in emoji_text or "bus" in emoji_text.lower():
-                Color(*get_color_from_hex("#FFEB3B")) # Bus yellow
-                RoundedRectangle(pos=(cx-size, cy-size), size=(size*2, size*2), radius=[5])
-                Color(*get_color_from_hex("#424242")) # Wheels
-                Ellipse(pos=(cx-size*0.8, cy-size*1.2), size=(size*0.6, size*0.6))
-                Ellipse(pos=(cx+size*0.2, cy-size*1.2), size=(size*0.6, size*0.6))
-            elif "🪥" in emoji_text or "teeth" in emoji_text.lower():
-                Color(*get_color_from_hex("#81D4FA")) # Handle blue
-                RoundedRectangle(pos=(cx-size*0.8, cy-size/2), size=(size*1.6, size*0.4), radius=[3])
-                Color(*get_color_from_hex("#EEEEEE")) # Bristles
-                RoundedRectangle(pos=(cx+size*0.2, cy-size/2+size*0.4), size=(size*0.6, size*0.4), radius=[2])
-            elif "📖" in emoji_text or "read" in emoji_text.lower():
-                Color(*get_color_from_hex("#795548")) # Book brown cover
-                RoundedRectangle(pos=(cx-size, cy-size*0.8), size=(size*2, size*1.6), radius=[4])
-                Color(*get_color_from_hex("#FFFFFF")) # Pages
-                RoundedRectangle(pos=(cx-size*0.8, cy-size*0.6), size=(size*1.6, size*1.2), radius=[2])
-            elif "🎮" in emoji_text or "game" in emoji_text.lower() or "play" in emoji_text.lower():
-                Color(*get_color_from_hex("#9C27B0")) # Purple controller
-                RoundedRectangle(pos=(cx-size*1.2, cy-size*0.6), size=(size*2.4, size*1.2), radius=[size*0.6])
-                Color(*get_color_from_hex("#FFFFFF")) # Buttons
-                Ellipse(pos=(cx-size*0.8, cy-size*0.2), size=(size*0.4, size*0.4))
-                Ellipse(pos=(cx+size*0.4, cy-size*0.2), size=(size*0.4, size*0.4))
-            else:
-                # Default generic task icon (Clipboard/Document)
-                Color(*get_color_from_hex("#BDBDBD"))
-                RoundedRectangle(pos=(cx-size*0.8, cy-size), size=(size*1.6, size*2), radius=[4])
-                Color(*get_color_from_hex("#FFFFFF"))
-                RoundedRectangle(pos=(cx-size*0.6, cy-size*0.8), size=(size*1.2, size*1.6), radius=[2])
-                Color(*get_color_from_hex("#424242"))
-                RoundedRectangle(pos=(cx-size*0.4, cy+size*0.2), size=(size*0.8, size*0.1))
-                RoundedRectangle(pos=(cx-size*0.4, cy), size=(size*0.8, size*0.1))
-                RoundedRectangle(pos=(cx-size*0.4, cy-size*0.2), size=(size*0.8, size*0.1))
+def _get_emoji_font():
+    """Helper to get the path to a font that supports emojis on Windows, or default."""
+    import os
+    if os.path.exists("C:/Windows/Fonts/seguiemj.ttf"):
+        return "C:/Windows/Fonts/seguiemj.ttf"
+    elif os.path.exists("C:/Windows/Fonts/seguihis.ttf"):
+        return "C:/Windows/Fonts/seguihis.ttf" 
+    return "Roboto" # Fallback
 
-    w.bind(pos=_draw_shape, size=_draw_shape)
-    Clock.schedule_once(lambda dt: _draw_shape(w), 0)
-    return w
+def _create_emoji_label(text, font_size, **kwargs):
+    lbl = Label(text=text, font_size=font_size, font_name=_get_emoji_font(), **kwargs)
+    return lbl
 class DashboardScreen(Screen):
     def on_enter(self):
         self.update_info()
@@ -132,8 +92,7 @@ class DashboardScreen(Screen):
             img = KivyImage(source=icon_data, allow_stretch=True, keep_ratio=True)
             parent_widget.add_widget(img)
         else:
-            # Re-use our robust canvas drawing for dashboard icons
-            icon_widget = _create_emoji_widget(icon_data)
+            icon_widget = _create_emoji_label(icon_data, font_size='80sp')
             parent_widget.add_widget(icon_widget)
 
 class AACScreen(Screen):
@@ -173,7 +132,10 @@ class AACScreen(Screen):
         self.ids.category_list.add_widget(all_btn)
 
         for cat in categories:
-            btn = Button(text=cat.name, size_hint_y=None, height=70, font_size='22sp', bold=True)
+            btn = Button(
+                text=cat.name,
+                font_name=_get_emoji_font(),
+                size_hint_y=None, height=70, font_size='22sp', bold=True)
             btn.background_normal = ''
             btn.background_color = [0, 0, 0, 0]
             with btn.canvas.before:
@@ -223,7 +185,7 @@ class AACScreen(Screen):
                 icon_widget = KivyImage(source=btn_data.image_path, size_hint_y=0.7)
             else:
                 icon_widget = Label(text=btn_data.image_path or '🗣️',
-                                    font_size='56sp', color=[0,0,0,1], size_hint_y=0.7)
+                                    font_size='56sp', color=[0,0,0,1], size_hint_y=0.7, font_name=_get_emoji_font())
             
             box.add_widget(icon_widget)
             box.add_widget(Label(text=btn_data.label, font_size='22sp', bold=True, color=get_color_from_hex("#333333"), size_hint_y=0.3))
@@ -288,7 +250,7 @@ class AdminScreen(Screen):
             if ev.icon_path and (ev.icon_path.endswith('.png') or ev.icon_path.endswith('.jpg')):
                 icon_widget = KivyImage(source=ev.icon_path, size_hint_x=0.1)
             else:
-                icon_widget = _create_emoji_widget(ev.icon_path or '📅', size_hint_x=0.1)
+                icon_widget = _create_emoji_label(ev.icon_path or '📅', font_size='40sp', size_hint_x=0.1, color=[0,0,0,1])
             
             row.add_widget(icon_widget)
             info = BoxLayout(orientation='vertical', size_hint_x=0.7)
@@ -410,7 +372,7 @@ class SchedulerScreen(Screen):
             if ev.icon_path and (ev.icon_path.endswith('.png') or ev.icon_path.endswith('.jpg')):
                 icon_widget = KivyImage(source=ev.icon_path, size_hint_x=0.2)
             else:
-                icon_widget = _create_emoji_widget(ev.icon_path or '📅', size_hint_x=0.2)
+                icon_widget = _create_emoji_label(ev.icon_path or '📅', font_size='50sp', size_hint_x=0.2, color=[0,0,0,1])
             card.add_widget(icon_widget)
             
             info = BoxLayout(orientation='vertical', size_hint_x=0.6)
