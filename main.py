@@ -457,21 +457,208 @@ class AutismLearningHubApp(App):
         return sm
 
     def seed_data(self):
-        # Seed AAC Categories and Buttons if empty
-        if not self.db.query(AACCategory).first():
+        # ---------------------------------------------------------------
+        # AAC CATEGORIES & BUTTONS
+        # Reseed if the DB is empty OR if it only has the old minimal data
+        # (fewer than 10 buttons means it's the old 6-button seed).
+        # ---------------------------------------------------------------
+        existing_btn_count = self.db.query(AACButton).count()
+        if existing_btn_count < 10:
+            # Wipe old sparse data so we can insert the full vocabulary
+            self.db.query(AACButton).delete()
+            self.db.query(AACCategory).delete()
+            self.db.commit()
+
+            # ── 1. Needs & Requests ──────────────────────────────────────
             cat_needs = AACCategory(name='Needs', color='#FFCDD2')
-            cat_food = AACCategory(name='Food', color='#C8E6C9')
+            # ── 2. Food & Drinks ─────────────────────────────────────────
+            cat_food = AACCategory(name='Food & Drinks', color='#C8E6C9')
+            # ── 3. Feelings ───────────────────────────────────────────────
             cat_feelings = AACCategory(name='Feelings', color='#BBDEFB')
-            self.db.add_all([cat_needs, cat_food, cat_feelings])
+            # ── 4. People ─────────────────────────────────────────────────
+            cat_people = AACCategory(name='People', color='#E1BEE7')
+            # ── 5. Places ─────────────────────────────────────────────────
+            cat_places = AACCategory(name='Places', color='#B2EBF2')
+            # ── 6. Actions ────────────────────────────────────────────────
+            cat_actions = AACCategory(name='Actions', color='#DCEDC8')
+            # ── 7. Body ───────────────────────────────────────────────────
+            cat_body = AACCategory(name='Body', color='#FFE0B2')
+            # ── 8. Questions ──────────────────────────────────────────────
+            cat_questions = AACCategory(name='Questions', color='#F8BBD0')
+            # ── 9. Responses ──────────────────────────────────────────────
+            cat_responses = AACCategory(name='Responses', color='#FFF9C4')
+            # ── 10. School ───────────────────────────────────────────────
+            cat_school = AACCategory(name='School', color='#CFD8DC')
+            # ── 11. Health & Self-Care ────────────────────────────────────
+            cat_health = AACCategory(name='Health', color='#D7CCC8')
+            # ── 12. Quick Phrases ─────────────────────────────────────────
+            cat_phrases = AACCategory(name='Quick Phrases', color='#FFCCBC')
+
+            self.db.add_all([
+                cat_needs, cat_food, cat_feelings, cat_people, cat_places,
+                cat_actions, cat_body, cat_questions, cat_responses,
+                cat_school, cat_health, cat_phrases
+            ])
             self.db.commit()
 
             buttons = [
-                AACButton(label='Hungry', speech_text='I am hungry', image_path='🍔', category=cat_needs),
-                AACButton(label='Thirsty', speech_text='I am thirsty', image_path='🥤', category=cat_needs),
-                AACButton(label='Toast', speech_text='I want toast', image_path='assets/icons/toast.png', category=cat_food),
-                AACButton(label='Apple', speech_text='Apple', image_path='�', category=cat_food),
-                AACButton(label='Happy', speech_text='I feel happy', image_path='assets/emotions/happy.png', category=cat_feelings),
-                AACButton(label='Sad', speech_text='I feel sad', image_path='assets/emotions/sad.png', category=cat_feelings),
+                # ── Needs & Requests ──────────────────────────────────────
+                AACButton(label='Hungry',    speech_text='I am hungry',          image_path='🍔', category=cat_needs),
+                AACButton(label='Thirsty',   speech_text='I am thirsty',         image_path='🥤', category=cat_needs),
+                AACButton(label='Tired',     speech_text='I am tired',           image_path='😴', category=cat_needs),
+                AACButton(label='Toilet',    speech_text='I need to use the toilet', image_path='🚽', category=cat_needs),
+                AACButton(label='Help',      speech_text='I need help',          image_path='🙋', category=cat_needs),
+                AACButton(label='More',      speech_text='I want more',          image_path='➕', category=cat_needs),
+                AACButton(label='Stop',      speech_text='Please stop',          image_path='🛑', category=cat_needs),
+                AACButton(label='Go Away',   speech_text='Please go away',       image_path='👋', category=cat_needs),
+                AACButton(label='Pain',      speech_text='I am in pain',         image_path='😣', category=cat_needs),
+                AACButton(label='Cold',      speech_text='I am cold',            image_path='🥶', category=cat_needs),
+                AACButton(label='Hot',       speech_text='I am hot',             image_path='🥵', category=cat_needs),
+                AACButton(label='Quiet',     speech_text='Please be quiet',      image_path='🤫', category=cat_needs),
+
+                # ── Food & Drinks ─────────────────────────────────────────
+                AACButton(label='Water',     speech_text='I want water',         image_path='💧', category=cat_food),
+                AACButton(label='Milk',      speech_text='I want milk',          image_path='🥛', category=cat_food),
+                AACButton(label='Juice',     speech_text='I want juice',         image_path='🧃', category=cat_food),
+                AACButton(label='Apple',     speech_text='I want an apple',      image_path='🍎', category=cat_food),
+                AACButton(label='Banana',    speech_text='I want a banana',      image_path='🍌', category=cat_food),
+                AACButton(label='Bread',     speech_text='I want bread',         image_path='🍞', category=cat_food),
+                AACButton(label='Toast',     speech_text='I want toast',         image_path='assets/icons/toast.png', category=cat_food),
+                AACButton(label='Rice',      speech_text='I want rice',          image_path='🍚', category=cat_food),
+                AACButton(label='Cookie',    speech_text='I want a cookie',      image_path='🍪', category=cat_food),
+                AACButton(label='Pizza',     speech_text='I want pizza',         image_path='🍕', category=cat_food),
+                AACButton(label='Eggs',      speech_text='I want eggs',          image_path='🥚', category=cat_food),
+                AACButton(label='Chicken',   speech_text='I want chicken',       image_path='🍗', category=cat_food),
+                AACButton(label='Noodles',   speech_text='I want noodles',       image_path='🍜', category=cat_food),
+                AACButton(label='Ice Cream', speech_text='I want ice cream',     image_path='🍦', category=cat_food),
+                AACButton(label='Cereal',    speech_text='I want cereal',        image_path='🥣', category=cat_food),
+                AACButton(label='Sandwich',  speech_text='I want a sandwich',    image_path='🥪', category=cat_food),
+
+                # ── Feelings ──────────────────────────────────────────────
+                AACButton(label='Happy',     speech_text='I feel happy',         image_path='assets/emotions/happy.png',   category=cat_feelings),
+                AACButton(label='Sad',       speech_text='I feel sad',           image_path='assets/emotions/sad.png',     category=cat_feelings),
+                AACButton(label='Angry',     speech_text='I feel angry',         image_path='assets/emotions/angry.png',   category=cat_feelings),
+                AACButton(label='Scared',    speech_text='I feel scared',        image_path='assets/emotions/fear.png',    category=cat_feelings),
+                AACButton(label='Surprised', speech_text='I feel surprised',     image_path='assets/emotions/surprise.png',category=cat_feelings),
+                AACButton(label='Disgusted', speech_text='I feel disgusted',     image_path='assets/emotions/disgust.png', category=cat_feelings),
+                AACButton(label='Calm',      speech_text='I feel calm',          image_path='😌', category=cat_feelings),
+                AACButton(label='Excited',   speech_text='I feel excited',       image_path='🤩', category=cat_feelings),
+                AACButton(label='Bored',     speech_text='I feel bored',         image_path='😑', category=cat_feelings),
+                AACButton(label='Confused',  speech_text='I feel confused',      image_path='😕', category=cat_feelings),
+                AACButton(label='Nervous',   speech_text='I feel nervous',       image_path='😰', category=cat_feelings),
+                AACButton(label='Proud',     speech_text='I feel proud',         image_path='😊', category=cat_feelings),
+
+                # ── People ────────────────────────────────────────────────
+                AACButton(label='Mum',       speech_text='Mum',                  image_path='👩', category=cat_people),
+                AACButton(label='Dad',       speech_text='Dad',                  image_path='👨', category=cat_people),
+                AACButton(label='Teacher',   speech_text='Teacher',              image_path='🧑‍🏫', category=cat_people),
+                AACButton(label='Doctor',    speech_text='Doctor',               image_path='🧑‍⚕️', category=cat_people),
+                AACButton(label='Friend',    speech_text='My friend',            image_path='🧑', category=cat_people),
+                AACButton(label='Baby',      speech_text='Baby',                 image_path='👶', category=cat_people),
+                AACButton(label='Me',        speech_text='Me',                   image_path='🙋', category=cat_people),
+                AACButton(label='You',       speech_text='You',                  image_path='👉', category=cat_people),
+                AACButton(label='Sister',    speech_text='My sister',            image_path='👧', category=cat_people),
+                AACButton(label='Brother',   speech_text='My brother',           image_path='👦', category=cat_people),
+                AACButton(label='Grandma',   speech_text='Grandma',              image_path='👵', category=cat_people),
+                AACButton(label='Grandpa',   speech_text='Grandpa',              image_path='👴', category=cat_people),
+
+                # ── Places ────────────────────────────────────────────────
+                AACButton(label='Home',      speech_text='I want to go home',    image_path='🏠', category=cat_places),
+                AACButton(label='School',    speech_text='School',               image_path='🏫', category=cat_places),
+                AACButton(label='Hospital',  speech_text='Hospital',             image_path='🏥', category=cat_places),
+                AACButton(label='Park',      speech_text='I want to go to the park', image_path='🌳', category=cat_places),
+                AACButton(label='Toilet',    speech_text='The toilet',           image_path='🚽', category=cat_places),
+                AACButton(label='Bedroom',   speech_text='My bedroom',           image_path='🛏️', category=cat_places),
+                AACButton(label='Kitchen',   speech_text='The kitchen',          image_path='🍳', category=cat_places),
+                AACButton(label='Car',       speech_text='The car',              image_path='🚗', category=cat_places),
+                AACButton(label='Store',     speech_text='The store',            image_path='🛒', category=cat_places),
+                AACButton(label='Playground',speech_text='The playground',       image_path='🎡', category=cat_places),
+
+                # ── Actions ───────────────────────────────────────────────
+                AACButton(label='Eat',       speech_text='I want to eat',        image_path='🍽️', category=cat_actions),
+                AACButton(label='Drink',     speech_text='I want to drink',      image_path='🥤', category=cat_actions),
+                AACButton(label='Sleep',     speech_text='I want to sleep',      image_path='😴', category=cat_actions),
+                AACButton(label='Play',      speech_text='I want to play',       image_path='🎮', category=cat_actions),
+                AACButton(label='Read',      speech_text='I want to read',       image_path='📖', category=cat_actions),
+                AACButton(label='Watch TV',  speech_text='I want to watch TV',   image_path='📺', category=cat_actions),
+                AACButton(label='Walk',      speech_text='I want to walk',       image_path='🚶', category=cat_actions),
+                AACButton(label='Sit',       speech_text='I want to sit down',   image_path='🪑', category=cat_actions),
+                AACButton(label='Stand',     speech_text='I want to stand up',   image_path='🧍', category=cat_actions),
+                AACButton(label='Wash',      speech_text='I want to wash',       image_path='🚿', category=cat_actions),
+                AACButton(label='Draw',      speech_text='I want to draw',       image_path='✏️', category=cat_actions),
+                AACButton(label='Dance',     speech_text='I want to dance',      image_path='💃', category=cat_actions),
+                AACButton(label='Sing',      speech_text='I want to sing',       image_path='🎵', category=cat_actions),
+                AACButton(label='Go Out',    speech_text='I want to go outside', image_path='🌤️', category=cat_actions),
+
+                # ── Body ──────────────────────────────────────────────────
+                AACButton(label='Head',      speech_text='My head hurts',        image_path='🤕', category=cat_body),
+                AACButton(label='Tummy',     speech_text='My tummy hurts',       image_path='🤢', category=cat_body),
+                AACButton(label='Arm',       speech_text='My arm hurts',         image_path='💪', category=cat_body),
+                AACButton(label='Leg',       speech_text='My leg hurts',         image_path='🦵', category=cat_body),
+                AACButton(label='Mouth',     speech_text='My mouth hurts',       image_path='👄', category=cat_body),
+                AACButton(label='Eyes',      speech_text='My eyes hurt',         image_path='👁️', category=cat_body),
+                AACButton(label='Ear',       speech_text='My ear hurts',         image_path='👂', category=cat_body),
+                AACButton(label='Hand',      speech_text='My hand hurts',        image_path='✋', category=cat_body),
+                AACButton(label='Foot',      speech_text='My foot hurts',        image_path='🦶', category=cat_body),
+                AACButton(label='Hurts',     speech_text='It hurts here',        image_path='🩹', category=cat_body),
+
+                # ── Questions ─────────────────────────────────────────────
+                AACButton(label='What?',     speech_text='What is that?',        image_path='❓', category=cat_questions),
+                AACButton(label='Where?',    speech_text='Where are we going?',  image_path='🗺️', category=cat_questions),
+                AACButton(label='Who?',      speech_text='Who is that?',         image_path='🧐', category=cat_questions),
+                AACButton(label='When?',     speech_text='When is it?',          image_path='⏰', category=cat_questions),
+                AACButton(label='Why?',      speech_text='Why?',                 image_path='🤔', category=cat_questions),
+                AACButton(label='How?',      speech_text='How do I do this?',    image_path='💡', category=cat_questions),
+                AACButton(label='Can I?',    speech_text='Can I have a turn?',   image_path='🙏', category=cat_questions),
+                AACButton(label='What next?',speech_text='What do I do next?',   image_path='➡️', category=cat_questions),
+
+                # ── Responses ─────────────────────────────────────────────
+                AACButton(label='Yes',       speech_text='Yes',                  image_path='✅', category=cat_responses),
+                AACButton(label='No',        speech_text='No',                   image_path='❌', category=cat_responses),
+                AACButton(label='Maybe',     speech_text='Maybe',                image_path='🤷', category=cat_responses),
+                AACButton(label='I don\'t know', speech_text='I do not know',    image_path='😶', category=cat_responses),
+                AACButton(label='Please',    speech_text='Please',               image_path='🙏', category=cat_responses),
+                AACButton(label='Thank You', speech_text='Thank you',            image_path='😊', category=cat_responses),
+                AACButton(label='Sorry',     speech_text='I am sorry',           image_path='😔', category=cat_responses),
+                AACButton(label='OK',        speech_text='OK',                   image_path='👍', category=cat_responses),
+                AACButton(label='Finished',  speech_text='I am finished',        image_path='🏁', category=cat_responses),
+                AACButton(label='Again',     speech_text='Can we do it again?',  image_path='🔄', category=cat_responses),
+
+                # ── School ────────────────────────────────────────────────
+                AACButton(label='Book',      speech_text='I want the book',      image_path='📚', category=cat_school),
+                AACButton(label='Pencil',    speech_text='I need a pencil',      image_path='✏️', category=cat_school),
+                AACButton(label='Drawing',   speech_text='I want to draw',       image_path='🎨', category=cat_school),
+                AACButton(label='Counting',  speech_text='Let us count',         image_path='🔢', category=cat_school),
+                AACButton(label='Spelling',  speech_text='Let us do spelling',   image_path='🔤', category=cat_school),
+                AACButton(label='Break',     speech_text='I need a break',       image_path='☕', category=cat_school),
+                AACButton(label='Circle Time',speech_text='It is circle time',   image_path='⭕', category=cat_school),
+                AACButton(label='Computer',  speech_text='I want to use the computer', image_path='💻', category=cat_school),
+                AACButton(label='Art',       speech_text='I want to do art',     image_path='🖌️', category=cat_school),
+                AACButton(label='Music',     speech_text='I want music',         image_path='🎶', category=cat_school),
+
+                # ── Health & Self-Care ────────────────────────────────────
+                AACButton(label='Medicine',   speech_text='I need my medicine',  image_path='💊', category=cat_health),
+                AACButton(label='Wash Hands', speech_text='I need to wash my hands', image_path='🧼', category=cat_health),
+                AACButton(label='Bath',       speech_text='I want a bath',       image_path='🛁', category=cat_health),
+                AACButton(label='Brush Teeth',speech_text='I need to brush my teeth', image_path='assets/icons/toothbrush.png', category=cat_health),
+                AACButton(label='Haircut',    speech_text='I need a haircut',    image_path='✂️', category=cat_health),
+                AACButton(label='Doctor',     speech_text='I need to see the doctor', image_path='🧑‍⚕️', category=cat_health),
+                AACButton(label='Sick',       speech_text='I feel sick',         image_path='🤒', category=cat_health),
+                AACButton(label='Tissues',    speech_text='I need tissues',      image_path='🤧', category=cat_health),
+
+                # ── Quick Phrases ─────────────────────────────────────────
+                AACButton(label='I want...',       speech_text='I want',               image_path='👉', category=cat_phrases),
+                AACButton(label='I need...',       speech_text='I need',               image_path='🙋', category=cat_phrases),
+                AACButton(label='I feel...',       speech_text='I feel',               image_path='💬', category=cat_phrases),
+                AACButton(label='Can I have?',     speech_text='Can I have',           image_path='🙏', category=cat_phrases),
+                AACButton(label='Please help me',  speech_text='Please help me',       image_path='🆘', category=cat_phrases),
+                AACButton(label='I don\'t like',   speech_text='I do not like this',   image_path='👎', category=cat_phrases),
+                AACButton(label='I don\'t understand', speech_text='I do not understand', image_path='😕', category=cat_phrases),
+                AACButton(label='I\'m done',       speech_text='I am done',            image_path='🏁', category=cat_phrases),
+                AACButton(label='Look at me',      speech_text='Please look at me',    image_path='👀', category=cat_phrases),
+                AACButton(label='Wait please',     speech_text='Please wait',          image_path='✋', category=cat_phrases),
+                AACButton(label='That\'s mine',    speech_text='That is mine',         image_path='☝️', category=cat_phrases),
+                AACButton(label='Share please',    speech_text='Can we share please?', image_path='🤝', category=cat_phrases),
             ]
             self.db.add_all(buttons)
             self.db.commit()
