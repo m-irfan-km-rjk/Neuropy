@@ -54,7 +54,7 @@ class EmotionAI:
         try:
             # Try TFLite first
             if self.model_path.exists():
-                print(f"Loading TFLite model from {self.model_path}...")
+                print(f"[LOAD] Loading TFLite model from {self.model_path}...")
                 self.interpreter = tf.lite.Interpreter(model_path=str(self.model_path))
                 self.interpreter.allocate_tensors()
                 
@@ -66,7 +66,7 @@ class EmotionAI:
                 input_shape = self.input_details[0]['shape']
                 self.input_size = input_shape[1]  # Assuming shape is [batch, height, width, channels]
                 
-                print(f"TFLite model loaded successfully")
+                print(f"[OK] TFLite model loaded successfully")
                 print(f"   Input shape: {input_shape}")
                 print(f"   Expected input size: {self.input_size}x{self.input_size}")
                 print(f"   Output shape: {self.output_details[0]['shape']}")
@@ -75,8 +75,8 @@ class EmotionAI:
             # Fallback to H5 if TFLite doesn't exist
             h5_path = Path("models/mini_xception.h5")
             if h5_path.exists():
-                print(f"TFLite model not found, using H5 model as fallback...")
-                print(f"Loading H5 model from {h5_path}...")
+                print(f"[WARN] TFLite model not found, using H5 model as fallback...")
+                print(f"[LOAD] Loading H5 model from {h5_path}...")
                 
                 # Load Keras model without compiling
                 self.keras_model = tf.keras.models.load_model(str(h5_path), compile=False)
@@ -86,21 +86,21 @@ class EmotionAI:
                 input_shape = self.keras_model.input_shape
                 self.input_size = input_shape[1]  # Assuming shape is (None, height, width, channels)
                 
-                print(f"H5 model loaded successfully")
+                print(f"[OK] H5 model loaded successfully")
                 print(f"   Input shape: {input_shape}")
                 print(f"   Expected input size: {self.input_size}x{self.input_size}")
                 print(f"   Output shape: {self.keras_model.output_shape}")
-                print(f"   Tip: Run 'python convert_model.py' to create TFLite model for better performance")
+                print(f"   [TIP] Run 'python convert_model.py' to create TFLite model for better performance")
                 return
             
             # No model found
-            print(f"No model found!")
+            print(f"[WARN] No model found!")
             print(f"   TFLite: {self.model_path} - Not found")
             print(f"   H5: {h5_path} - Not found")
             print(f"   Please run 'python download_model.py' to download the model")
             
         except Exception as e:
-            print(f"Error loading model: {e}")
+            print(f"[ERROR] Error loading model: {e}")
             import traceback
             traceback.print_exc()
             self.interpreter = None
@@ -182,7 +182,7 @@ class EmotionAI:
             probabilities = {self.EMOTIONS[i]: float(preds[i]) for i in range(len(self.EMOTIONS))}
             return emotion, confidence, probabilities
         except Exception as e:
-            print(f"Error during prediction: {e}")
+            print(f"[ERROR] Error during prediction: {e}")
             import traceback
             traceback.print_exc()
             return "Neutral", 0.0, {}
