@@ -33,7 +33,61 @@ Window.clearcolor = get_color_from_hex("#FDFCF0")
 
 # --- Custom Widgets ---
 
+from kivy.uix.widget import Widget
+from kivy.graphics import Ellipse, Triangle, Quad
 
+def _create_emoji_widget(emoji_text, **kwargs):
+    """Creates a widget with shapes that mimic common emojis to avoid font rendering issues."""
+    w = Widget(**kwargs)
+    with w.canvas:
+        # We will bind the draw to size and pos
+        pass
+        
+    def _draw_shape(instance, *args):
+        instance.canvas.clear()
+        cx, cy = instance.center_x, instance.center_y
+        size = min(instance.width, instance.height) * 0.4
+        
+        with instance.canvas:
+            if "🥣" in emoji_text or "meal" in emoji_text.lower():
+                Color(*get_color_from_hex("#FFCC80")) # Bowl orange
+                Ellipse(pos=(cx-size, cy-size*0.5), size=(size*2, size))
+            elif "🚌" in emoji_text or "bus" in emoji_text.lower():
+                Color(*get_color_from_hex("#FFEB3B")) # Bus yellow
+                RoundedRectangle(pos=(cx-size, cy-size), size=(size*2, size*2), radius=[5])
+                Color(*get_color_from_hex("#424242")) # Wheels
+                Ellipse(pos=(cx-size*0.8, cy-size*1.2), size=(size*0.6, size*0.6))
+                Ellipse(pos=(cx+size*0.2, cy-size*1.2), size=(size*0.6, size*0.6))
+            elif "🪥" in emoji_text or "teeth" in emoji_text.lower():
+                Color(*get_color_from_hex("#81D4FA")) # Handle blue
+                RoundedRectangle(pos=(cx-size*0.8, cy-size/2), size=(size*1.6, size*0.4), radius=[3])
+                Color(*get_color_from_hex("#EEEEEE")) # Bristles
+                RoundedRectangle(pos=(cx+size*0.2, cy-size/2+size*0.4), size=(size*0.6, size*0.4), radius=[2])
+            elif "📖" in emoji_text or "read" in emoji_text.lower():
+                Color(*get_color_from_hex("#795548")) # Book brown cover
+                RoundedRectangle(pos=(cx-size, cy-size*0.8), size=(size*2, size*1.6), radius=[4])
+                Color(*get_color_from_hex("#FFFFFF")) # Pages
+                RoundedRectangle(pos=(cx-size*0.8, cy-size*0.6), size=(size*1.6, size*1.2), radius=[2])
+            elif "🎮" in emoji_text or "game" in emoji_text.lower() or "play" in emoji_text.lower():
+                Color(*get_color_from_hex("#9C27B0")) # Purple controller
+                RoundedRectangle(pos=(cx-size*1.2, cy-size*0.6), size=(size*2.4, size*1.2), radius=[size*0.6])
+                Color(*get_color_from_hex("#FFFFFF")) # Buttons
+                Ellipse(pos=(cx-size*0.8, cy-size*0.2), size=(size*0.4, size*0.4))
+                Ellipse(pos=(cx+size*0.4, cy-size*0.2), size=(size*0.4, size*0.4))
+            else:
+                # Default generic task icon (Clipboard/Document)
+                Color(*get_color_from_hex("#BDBDBD"))
+                RoundedRectangle(pos=(cx-size*0.8, cy-size), size=(size*1.6, size*2), radius=[4])
+                Color(*get_color_from_hex("#FFFFFF"))
+                RoundedRectangle(pos=(cx-size*0.6, cy-size*0.8), size=(size*1.2, size*1.6), radius=[2])
+                Color(*get_color_from_hex("#424242"))
+                RoundedRectangle(pos=(cx-size*0.4, cy+size*0.2), size=(size*0.8, size*0.1))
+                RoundedRectangle(pos=(cx-size*0.4, cy), size=(size*0.8, size*0.1))
+                RoundedRectangle(pos=(cx-size*0.4, cy-size*0.2), size=(size*0.8, size*0.1))
+
+    w.bind(pos=_draw_shape, size=_draw_shape)
+    Clock.schedule_once(lambda dt: _draw_shape(w), 0)
+    return w
 class DashboardScreen(Screen):
     def on_enter(self):
         self.update_info()
@@ -74,12 +128,13 @@ class DashboardScreen(Screen):
         if not icon_data:
             icon_data = "📍"
 
-        if icon_data.endswith('.png') or icon_data.endswith('.jpg'):
+        if icon_data.endswith('.png') or icon_data.endswith('.jpg') or icon_data.endswith('.jpeg'):
             img = KivyImage(source=icon_data, allow_stretch=True, keep_ratio=True)
             parent_widget.add_widget(img)
         else:
-            lbl = Label(text=icon_data, font_size='80sp')
-            parent_widget.add_widget(lbl)
+            # Re-use our robust canvas drawing for dashboard icons
+            icon_widget = _create_emoji_widget(icon_data)
+            parent_widget.add_widget(icon_widget)
 
 class AACScreen(Screen):
     def __init__(self, **kwargs):
@@ -233,7 +288,7 @@ class AdminScreen(Screen):
             if ev.icon_path and (ev.icon_path.endswith('.png') or ev.icon_path.endswith('.jpg')):
                 icon_widget = KivyImage(source=ev.icon_path, size_hint_x=0.1)
             else:
-                icon_widget = Label(text=ev.icon_path or '📅', font_size='30sp', size_hint_x=0.1, color=[0,0,0,1])
+                icon_widget = _create_emoji_widget(ev.icon_path or '📅', size_hint_x=0.1)
             
             row.add_widget(icon_widget)
             info = BoxLayout(orientation='vertical', size_hint_x=0.7)
@@ -254,8 +309,8 @@ class AdminScreen(Screen):
         end = self.ids.end_hour.text.strip()
         icon = self.ids.task_icon.text.strip()
 
-        if not title or not start or not end:
-            self._show_error("Please fill in title, start time, and end time.")
+        if not title or not start or not end or not icon:
+            self._show_error("Please fill in title, start time, end time, and an icon/emoji.")
             return
 
         try:
@@ -355,7 +410,7 @@ class SchedulerScreen(Screen):
             if ev.icon_path and (ev.icon_path.endswith('.png') or ev.icon_path.endswith('.jpg')):
                 icon_widget = KivyImage(source=ev.icon_path, size_hint_x=0.2)
             else:
-                icon_widget = Label(text=ev.icon_path or '📅', font_size='50sp', size_hint_x=0.2)
+                icon_widget = _create_emoji_widget(ev.icon_path or '📅', size_hint_x=0.2)
             card.add_widget(icon_widget)
             
             info = BoxLayout(orientation='vertical', size_hint_x=0.6)
