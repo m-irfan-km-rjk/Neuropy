@@ -429,29 +429,14 @@ class MemoryMatchGame(BoxLayout):
         if self._locked: return
         if tile.revealed or tile in self._tiles_up: return
 
-        if not self._started:
-            self._started = True
-
-        if getattr(self, '_hinted_tile', None):
-            self._hinted_tile.is_hint = False
-            self._hinted_tile._redraw()
-            self._hinted_tile = None
-
         tile.flip_to_front()
         self._tiles_up.append(tile)
 
-        if len(self._tiles_up) == 1:
-            if getattr(self, '_consecutive_misses', 0) >= 3:
-                t1 = self._tiles_up[0]
-                for t in self._all_tiles:
-                    if t != t1 and t.shape_name == t1.shape_name and not t.revealed:
-                        t.is_hint = True
-                        t._redraw()
-                        pulse = (Animation(size_hint_x=1.05, size_hint_y=1.05, duration=0.4) +
-                                 Animation(size_hint_x=1.0,  size_hint_y=1.0,  duration=0.4))
-                        pulse.start(t)
-                        self._hinted_tile = t
-                        break
+        if getattr(self, '_hinted_tiles', None):
+            for t in self._hinted_tiles:
+                t.is_hint = False
+                t._redraw()
+            self._hinted_tiles = []
 
         if len(self._tiles_up) == 2:
             self._locked = True
@@ -468,7 +453,26 @@ class MemoryMatchGame(BoxLayout):
             t2.mark_wrong()
             self._info_lbl.text = random.choice(MISS_MSGS)
             self._info_lbl.color = get_color_from_hex("#E53935") # More visible red
-            Clock.schedule_once(lambda dt: self._flip_back(t1, t2), MATCH_DUR)
+            Clock.schedule_once(lambda dt: self._flip_back_and_hint(t1, t2), MATCH_DUR)
+
+    def _flip_back_and_hint(self, t1, t2):
+        self._flip_back(t1, t2)
+        
+        # Immediately display a hint if they've failed 3 times
+        if getattr(self, '_consecutive_misses', 0) >= 3 and self._matches < self._num_pairs:
+            # Find an unrevealed pair
+            unrevealed = [t for t in self._all_tiles if not t.revealed]
+            if len(unrevealed) >= 2:
+                target_shape = unrevealed[0].shape_name
+                pair = [t for t in unrevealed if t.shape_name == target_shape][:2]
+                
+                self._hinted_tiles = pair
+                for t in pair:
+                    t.is_hint = True
+                    t._redraw()
+                    pulse = (Animation(size_hint_x=1.05, size_hint_y=1.05, duration=0.4) +
+                             Animation(size_hint_x=1.0,  size_hint_y=1.0,  duration=0.4))
+                    pulse.start(t)
 
     def _handle_match(self, t1, t2):
         self._consecutive_misses = 0
