@@ -78,6 +78,28 @@ class GamesHubScreen(Screen):
         mm_card.bind(on_release=lambda *a: setattr(App.get_running_app().root, 'current', 'memory_match'))
         grid.add_widget(mm_card)
 
+        # Routine Builder card
+        rb_card = self._make_game_card(
+            icon="📅",
+            title="Routine Builder",
+            desc="Practice daily steps",
+            bg_hex="#FFF9C4",
+            border_hex="#FFF176",
+        )
+        rb_card.bind(on_release=lambda *a: setattr(App.get_running_app().root, 'current', 'routine_builder'))
+        grid.add_widget(rb_card)
+
+        # Smart Bubble Pop card
+        sb_card = self._make_game_card(
+            icon="🫧",
+            title="Smart Bubble Pop",
+            desc="Pop the right symbols",
+            bg_hex="#E8DAEF",
+            border_hex="#D2B4DE",
+        )
+        sb_card.bind(on_release=lambda *a: setattr(App.get_running_app().root, 'current', 'smart_bubble_pop'))
+        grid.add_widget(sb_card)
+
         root.add_widget(grid)
         self.add_widget(root)
 
