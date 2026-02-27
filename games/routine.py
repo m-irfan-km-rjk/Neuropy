@@ -3,6 +3,7 @@ from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.label import Label
+from kivy.uix.image import Image
 from kivy.graphics import Color, RoundedRectangle
 from kivy.core.window import Window
 from kivy.clock import Clock
@@ -17,23 +18,48 @@ Window.clearcolor = (0.92, 0.96, 0.98, 1)
 SCENARIOS = [
     {
         "title": "Getting Ready for School",
-        "steps": ["Brush Teeth", "Wear Uniform", "Eat Breakfast", "Pack Bag"]
+        "steps": [
+            {"text": "Brush Teeth", "icon": "assets/images/brushteeth.jpg"}, 
+            {"text": "Wear Uniform", "icon": "assets/images/wearuniform.jpg"}, 
+            {"text": "Eat Breakfast", "icon": "assets/images/eatbreakfast.jpg"}, 
+            {"text": "Pack Bag", "icon": "assets/images/pack bag.jpg"}
+        ]
     },
     {
         "title": "Going to the Shop",
-        "steps": ["Carry Bag", "Take Money", "Buy Product", "Collect Balance"]
+        "steps": [
+            {"text": "Carry Bag", "icon": "assets/images/carrybag.jpg"}, 
+            {"text": "Take Money", "icon": "assets/images/take money.jpg"}, 
+            {"text": "Buy Product", "icon": "assets/images/buy product.jpg"}, 
+            {"text": "Collect Balance", "icon": "assets/images/collect balance.jpg"}
+        ]
     },
     {
         "title": "Preparing for Bed",
-        "steps": ["Change Clothes", "Brush Teeth", "Read Book", "Sleep"]
+        "steps": [
+            {"text": "Change Clothes", "icon": "assets/images/change cloths.jpg"}, 
+            {"text": "Brush Teeth", "icon": "assets/images/brushteeth.jpg"}, 
+            {"text": "Read Book", "icon": "assets/images/reading book.jpg"}, 
+            {"text": "Sleep", "icon": "assets/images/sleep.jpg"}
+        ]
     },
     {
         "title": "Going to Playground",
-        "steps": ["Wear Shoes", "Take Water Bottle", "Go Outside", "Play"]
+        "steps": [
+            {"text": "Wear Shoes", "icon": "assets/images/wear shoes.jpg"}, 
+            {"text": "Take Water Bottle", "icon": "assets/images/take bottle.jpg"}, 
+            {"text": "Go Outside", "icon": "assets/images/go outside.jpg"}, 
+            {"text": "Play", "icon": "assets/images/play.jpg"}
+        ]
     },
     {
         "title": "Doing Homework",
-        "steps": ["Take Books", "Sit at Desk", "Complete Work", "Pack Books"]
+        "steps": [
+            {"text": "Take Books", "icon": "assets/images/take book.png"}, 
+            {"text": "Sit at Desk", "icon": "assets/images/sit at desk.png"}, 
+            {"text": "Complete Work", "icon": "assets/images/complete work.png"}, 
+            {"text": "Pack Books", "icon": "assets/images/pack books.jpg"}
+        ]
     }
 ]
 
@@ -65,18 +91,39 @@ class StyledLabel(Label):
         self.bg_color_inst.rgba = color
 
 
-class DraggableTask(StyledLabel):
+class DraggableTask(BoxLayout):
     """
     Represents a single task that child can drag and drop.
     Handles custom touch down/move/up events.
     """
-    def __init__(self, text, **kwargs):
-        # Sensory-friendly colors, large readable text (minimum 160x60 -> 200x80)
-        super().__init__(bg_color=(1, 0.9, 0.7, 1), text=text, font_size='22sp', size_hint=(None, None), size=(200, 80), **kwargs)
+    def __init__(self, text, icon="", **kwargs):
+        # Sensory-friendly colors, large readable text (minimum 160x60 -> 200x140 for image support)
+        super().__init__(orientation='vertical', size_hint=(None, None), size=(200, 140), **kwargs)
+        
+        with self.canvas.before:
+            self.bg_color_inst = Color(1, 0.9, 0.7, 1)
+            self.rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[15])
+        self.bind(pos=self.update_rect, size=self.update_rect)
+        
+        if icon:
+            self.add_widget(Image(source=icon, size_hint=(1, 0.65), allow_stretch=True, keep_ratio=True))
+            
+        lbl = Label(text=text, font_size='16sp', color=(0.1, 0.1, 0.1, 1), size_hint=(1, 0.35 if icon else 1))
+        def _update_lbl_size(instance, value):
+            instance.text_size = (instance.width - 20, instance.height)
+        lbl.bind(size=_update_lbl_size)
+        lbl.halign = 'center'
+        lbl.valign = 'middle'
+        self.add_widget(lbl)
+
         self.is_dragging = False
         self.disabled = False
         self.task_name = text
         self.pos_hint_original = {}
+
+    def update_rect(self, *args):
+        self.rect.pos = self.pos
+        self.rect.size = self.size
 
     def on_touch_down(self, touch):
         if self.disabled:
@@ -229,8 +276,8 @@ class GameScreen(BoxLayout):
             ]
             random.shuffle(hints)
             
-            for i, task_text in enumerate(steps):
-                task = DraggableTask(text=task_text)
+            for i, step_data in enumerate(steps):
+                task = DraggableTask(text=step_data['text'], icon=step_data.get('icon', ''))
                 task.pos_hint_original = hints[i].copy()
                 task.pos_hint = hints[i].copy()
                 
@@ -246,7 +293,7 @@ class GameScreen(BoxLayout):
         """
         try:
             scenario = SCENARIOS[self.current_scenario_idx]
-            correct_order = scenario['steps']
+            correct_order = [s['text'] for s in scenario['steps']]
             
             dropped_on_slot = None
             dropped_slot_idx = -1
