@@ -7,8 +7,10 @@ from kivy.uix.image import Image
 from kivy.graphics import Color, RoundedRectangle
 from kivy.core.window import Window
 from kivy.clock import Clock
+from kivy.clock import Clock
 from kivy.uix.button import Button
 from kivy.uix.screenmanager import Screen
+from kivy.animation import Animation
 
 
 # Set soft pastel background color for the main window (Sensory-friendly)
@@ -63,25 +65,28 @@ SCENARIOS = [
     }
 ]
 
-class StyledLabel(Label):
+class StyledSlot(BoxLayout):
     """
-    Custom Label with rounded rectangle background used for slots and tasks.
-    Ensures safe drawing on size updates.
+    Custom container with rounded rectangle background used for timeline drop slots.
+    Displays an image and a label strictly when populated by a successful Drop.
     """
-    def __init__(self, bg_color, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, bg_color, text="", **kwargs):
+        super().__init__(orientation='vertical', padding=10, spacing=5, **kwargs)
         with self.canvas.before:
             self.bg_color_inst = Color(*bg_color)
             self.rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[15])
         
         self.bind(pos=self.update_rect, size=self.update_rect)
-        self.color = (0.1, 0.1, 0.1, 1) # Dark text for readability
-        self.halign = 'center'
-        self.valign = 'middle'
-        self.bind(size=self._update_text_size)
-
-    def _update_text_size(self, *args):
-        self.text_size = (self.width - 20, self.height)
+        
+        # Hidden by default until populated
+        self.img = Image(source="", size_hint=(1, 0.7), allow_stretch=True, keep_ratio=True, opacity=0)
+        self.add_widget(self.img)
+        
+        self.lbl = Label(text=text, color=(0.1, 0.1, 0.1, 1), font_size='22sp', bold=True, size_hint=(1, 0.3))
+        self.lbl.halign = 'center'
+        self.lbl.valign = 'middle'
+        self.lbl.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width - 20, inst.height)))
+        self.add_widget(self.lbl)
 
     def update_rect(self, *args):
         self.rect.pos = self.pos
@@ -89,6 +94,19 @@ class StyledLabel(Label):
 
     def set_bg_color(self, color):
         self.bg_color_inst.rgba = color
+        
+    def set_task(self, text, icon_path):
+        self.lbl.text = f"{text} ✔"
+        self.lbl.color = (0.1, 0.4, 0.1, 1) # Dark green success text
+        if icon_path:
+            self.img.source = icon_path
+            self.img.opacity = 1
+            
+    def reset(self, text):
+        self.lbl.text = text
+        self.lbl.color = (0.1, 0.1, 0.1, 1)
+        self.img.source = ""
+        self.img.opacity = 0
 
 
 class DraggableTask(BoxLayout):
@@ -119,7 +137,16 @@ class DraggableTask(BoxLayout):
         self.is_dragging = False
         self.disabled = False
         self.task_name = text
+        self.icon_source = icon
         self.pos_hint_original = {}
+
+    def glow(self, peak_color=(1, 0.2, 0.2, 1)):
+        anim = Animation(rgba=peak_color, duration=0.3) + Animation(rgba=(1, 0.9, 0.7, 1), duration=0.3)
+        anim.repeat = True
+        anim.start(self.bg_color_inst)
+
+    def stop_glow(self):
+        Animation.cancel_all(self.bg_color_inst)
 
     def update_rect(self, *args):
         self.rect.pos = self.pos
@@ -180,8 +207,12 @@ class GameScreen(BoxLayout):
     """
     Main layout containing Scenario Label, Tasks Area, Drop Slots, and Feedback Label.
     """
-    def __init__(self, **kwargs):
+    def __init__(self, level=2, return_menu_cb=None, **kwargs):
         super().__init__(**kwargs)
+        self.level = level
+        self.return_menu_cb = return_menu_cb
+        self.failed_attempts = 0
+        
         self.orientation = 'vertical'
         self.padding = 30
         self.spacing = 15
@@ -189,8 +220,11 @@ class GameScreen(BoxLayout):
         # UI STRUCTURE REQUIREMENTS (Layout 15%, 40%, 25%, 10%)
         # 1. Top Section (15%) - Scenario Label and Home Button
         self.top_section = BoxLayout(size_hint=(1, 0.15), orientation='horizontal', padding=[0, 10, 0, 0])
-        self.home_btn = Button(text="< Home", size_hint_x=None, width=120, background_normal='', background_color=(0.65, 0.84, 0.65, 1), color=(0.1, 0.1, 0.1, 1), bold=True, font_size='20sp')
-        self.home_btn.bind(on_release=self._go_home)
+        self.home_btn = Button(text="< Menu", size_hint_x=None, width=120, background_normal='', background_color=(0.65, 0.84, 0.65, 1), color=(0.1, 0.1, 0.1, 1), bold=True, font_size='20sp')
+        if self.return_menu_cb:
+            self.home_btn.bind(on_release=lambda x: self.return_menu_cb())
+        else:
+            self.home_btn.bind(on_release=self._go_home)
         self.scenario_lbl = Label(font_size='36sp', color=(0.1, 0.1, 0.1, 1), bold=True)
         self.top_section.add_widget(self.home_btn)
         self.top_section.add_widget(self.scenario_lbl)
@@ -213,7 +247,7 @@ class GameScreen(BoxLayout):
         # Create 4 static Drop Slots
         self.slots = []
         for i in range(4):
-            slot = StyledLabel(bg_color=(0.8, 0.8, 0.8, 1), text=f"Step {i+1}", font_size='22sp', bold=True)
+            slot = StyledSlot(bg_color=(0.8, 0.8, 0.8, 1), text=f"Step {i+1}")
             self.slots.append(slot)
             self.drop_section.add_widget(slot)
             
@@ -233,16 +267,17 @@ class GameScreen(BoxLayout):
                 # Clear areas
                 self.middle_section.clear_widgets()
                 for slot in self.slots:
-                    slot.text = ""
+                    slot.reset("")
                     slot.set_bg_color((0.8, 0.8, 0.8, 1))
                 self.feedback_section.text = ""
                 return
 
             scenario = SCENARIOS[self.current_scenario_idx]
-            self.scenario_lbl.text = f"Scenario: {scenario['title']}"
+            self.scenario_lbl.text = f"[{self.current_scenario_idx+1}/{len(SCENARIOS)}] Lvl {self.level}: {scenario['title']}"
             
             # State Reset Protection
             self.current_step_idx = 0
+            self.failed_attempts = 0
             self.feedback_section.text = ""
             
             self.reset_slots()
@@ -251,9 +286,9 @@ class GameScreen(BoxLayout):
             print(f"Error loading scenario: {e}")
 
     def reset_slots(self):
-        # Reset drop slots safely
+        # Reset drop slots safely wiping visual JPEGs
         for i, slot in enumerate(self.slots):
-            slot.text = f"Step {i+1}"
+            slot.reset(f"Step {i+1}")
             slot.set_bg_color((0.85, 0.85, 0.85, 1))
 
     def create_and_shuffle_tasks(self):
@@ -287,6 +322,24 @@ class GameScreen(BoxLayout):
         except Exception as e:
             print(f"Error shuffling tasks: {e}")
 
+    def play_level2_hint_sequence(self, dt=0):
+        try:
+            scenario = SCENARIOS[self.current_scenario_idx]
+            correct_order = [s['text'] for s in scenario['steps']]
+            
+            task_map = {t.task_name: t for t in self.tasks}
+            
+            delay = 0.0
+            for step_text in correct_order:
+                t = task_map.get(step_text)
+                if t:
+                    # Blink target sequentially using Green pulse memory
+                    Clock.schedule_once(lambda dt, task=t: task.glow(peak_color=(0.2, 0.8, 0.2, 1)), delay)
+                    Clock.schedule_once(lambda dt, task=t: task.stop_glow(), delay + 1.0)
+                    delay += 1.2
+        except Exception as e:
+            print(f"Error playing sequence: {e}")
+
     def handle_drop(self, task):
         """
         Validates the dropped task using collide_widget() immediately upon release
@@ -313,14 +366,14 @@ class GameScreen(BoxLayout):
             # 3. Duplicate Drop / out-of-order drop checks
             # Enforce drop in successive sequential slots only 
             if dropped_slot_idx != self.current_step_idx:
-                self.wrong_drop()
+                self.wrong_drop(task)
                 return
                 
             # Validation Logic
             if task.task_name == correct_order[self.current_step_idx]:
                 self.correct_drop(task, dropped_on_slot)
             else:
-                self.wrong_drop()
+                self.wrong_drop(task)
                 
         except Exception as e:
             # Prevents crashing on unexpectedly unhandled layout drops
@@ -328,8 +381,8 @@ class GameScreen(BoxLayout):
             task.return_to_original()
 
     def correct_drop(self, task, slot):
-        # Update UI: Change slot text and add tick
-        slot.text = f"{task.task_name} ✔"
+        # Update UI: Populate the slot with the Dragged Object's Icon Graphic
+        slot.set_task(task.task_name, task.icon_source)
         
         # Change slot UI to indicate success
         slot.set_bg_color((0.6, 0.9, 0.6, 1)) # Light pastel green
@@ -344,6 +397,10 @@ class GameScreen(BoxLayout):
         self.feedback_section.text = "✔ Correct!"
         self.feedback_section.color = (0.2, 0.8, 0.2, 1)
         
+        self.failed_attempts = 0
+        for t in self.tasks:
+            if hasattr(t, 'stop_glow'): t.stop_glow()
+        
         # Move up internal step
         self.current_step_idx += 1
         
@@ -356,33 +413,77 @@ class GameScreen(BoxLayout):
             # Load next scenario smoothly
             Clock.schedule_once(self.load_current_scenario, 2.0)
 
-    def wrong_drop(self):
+    def wrong_drop(self, task=None):
         # Update Feedback "Try Again"
         self.feedback_section.text = "❌ Try Again"
         self.feedback_section.color = (0.8, 0.2, 0.2, 1)
         
-        # Reset specific local step tracker
-        self.current_step_idx = 0
-        
-        # Reset UI
-        self.reset_slots()
-        
-        # Safely reshuffle everything again
-        self.create_and_shuffle_tasks()
+        if self.level == 1:
+            self.failed_attempts += 1
+            if task: 
+                task.return_to_original()
+            
+            if self.failed_attempts >= 3:
+                scenario = SCENARIOS[self.current_scenario_idx]
+                correct_order = [s['text'] for s in scenario['steps']]
+                target_name = correct_order[self.current_step_idx]
+                for t in self.tasks:
+                    if hasattr(t, 'task_name') and t.task_name == target_name and not t.disabled:
+                        if hasattr(t, 'glow'):
+                            t.glow(peak_color=(1, 0.2, 0.2, 1))
+        else:
+            # Level 2 Sequence completely resets
+            self.failed_attempts += 1
+            self.current_step_idx = 0
+            self.reset_slots()
+            self.create_and_shuffle_tasks()
+            
+            # If they have failed 3 times in strict mode, show the full sequence order
+            if self.failed_attempts >= 3:
+                Clock.schedule_once(self.play_level2_hint_sequence, 0.5)
 
     def _go_home(self, *args):
         app = App.get_running_app()
         if app and app.root and hasattr(app.root, 'current'):
             app.root.current = 'games'
 
-
 class RoutineGameScreen(Screen):
     def on_enter(self):
         self.clear_widgets()
         # Ensure correct background color is set when entering this screen
         Window.clearcolor = (0.92, 0.96, 0.98, 1)
-        self.add_widget(GameScreen())
+        self.show_menu()
 
+    def show_menu(self):
+        self.clear_widgets()
+        
+        layout = BoxLayout(orientation='vertical', padding=[50, 100], spacing=40)
+        
+        lbl = Label(text="Routine Sequence Builder", font_size='48sp', color=(0.1, 0.1, 0.1, 1), bold=True, size_hint=(1, 0.3))
+        layout.add_widget(lbl)
+        
+        btn_lvl1 = Button(text="Level 1 (With Hints & Forgiving Drops)", font_size='30sp', size_hint=(1, 0.2), background_normal='', background_color=(0.4, 0.8, 0.4, 1), bold=True)
+        btn_lvl1.bind(on_release=lambda x: self.start_game(level=1))
+        layout.add_widget(btn_lvl1)
+        
+        btn_lvl2 = Button(text="Level 2 (Strict Rules)", font_size='30sp', size_hint=(1, 0.2), background_normal='', background_color=(0.8, 0.4, 0.4, 1), bold=True)
+        btn_lvl2.bind(on_release=lambda x: self.start_game(level=2))
+        layout.add_widget(btn_lvl2)
+        
+        btn_home = Button(text="< Back to Hub", font_size='30sp', size_hint=(1, 0.2), background_normal='', background_color=(0.6, 0.6, 0.6, 1), bold=True)
+        btn_home.bind(on_release=self._go_home)
+        layout.add_widget(btn_home)
+        
+        self.add_widget(layout)
+        
+    def start_game(self, level):
+        self.clear_widgets()
+        self.add_widget(GameScreen(level=level, return_menu_cb=self.show_menu))
+        
+    def _go_home(self, *args):
+        app = App.get_running_app()
+        if app and app.root and hasattr(app.root, 'current'):
+            app.root.current = 'games'
 
 class RoutineApp(App):
     def build(self):
