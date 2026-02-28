@@ -100,6 +100,17 @@ class GamesHubScreen(Screen):
         sb_card.bind(on_release=lambda *a: setattr(App.get_running_app().root, 'current', 'smart_bubble_pop'))
         grid.add_widget(sb_card)
 
+        # Visual Real-Life card
+        vrl_card = self._make_game_card(
+            icon="🌍",
+            title="Visual Real-Life",
+            desc="Practice real-world skills",
+            bg_hex="#E3F2FD",
+            border_hex="#90CAF9",
+        )
+        vrl_card.bind(on_release=lambda *a: setattr(App.get_running_app().root, 'current', 'visual_real_life'))
+        grid.add_widget(vrl_card)
+
         root.add_widget(grid)
         self.add_widget(root)
 

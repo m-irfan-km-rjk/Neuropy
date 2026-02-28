@@ -26,7 +26,7 @@ import win32com.client
 # Import modules and models
 from modules.emotion_ai import EmotionAI
 from models import init_db, Event, AACCategory, AACButton
-from games import GamesHubScreen, EmotionSelectionScreen, EmotionPracticeScreen, MemoryMatchScreen, RoutineGameScreen, SmartBubbleAppScreen
+from games import GamesHubScreen, EmotionSelectionScreen, EmotionPracticeScreen, MemoryMatchScreen, RoutineGameScreen, SmartBubbleAppScreen, VisualRealLifeAppScreen
 
 # Set window background color
 Window.clearcolor = get_color_from_hex("#FDFCF0")
@@ -415,6 +415,7 @@ class AutismLearningHubApp(App):
         sm.add_widget(MemoryMatchScreen(name='memory_match'))
         sm.add_widget(RoutineGameScreen(name='routine_builder'))
         sm.add_widget(SmartBubbleAppScreen(name='smart_bubble_pop'))
+        sm.add_widget(VisualRealLifeAppScreen(name='visual_real_life'))
         
         return sm
 
